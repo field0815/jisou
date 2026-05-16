@@ -19,6 +19,7 @@ const Game = {
   trashCans: [],
 
   dayTime:   0,
+  dayIndex:  0,           // 며칠째인지 (0부터 시작)
   dayPhase:  'morning',  // 'morning' | 'day' | 'evening' | 'night'
   isNight:   false,
   isPaused:  false,
@@ -33,6 +34,21 @@ const Game = {
 
   // 식별 번호 카운터
   nextSerialNo: 1,
+
+  // 조직(familyId 단위) 적대감 & 습격 상태
+  tribeHostility: new Map(),       // key: "minId_maxId" → number
+  raidingTribes:  new Map(),       // familyId → { targetFamilyId, originalSize }
+  defendingTribes: new Map(),      // familyId → { attackerFamilyId, originalSize }
+  tribeNames:     new Map(),       // familyId → 사용자 지정 이름
+  _raidCheckTimer: 0,
+
+  tribeLabel(familyId) {
+    return this.tribeNames.get(familyId) ?? `조직#${familyId}`;
+  },
+  renameTribe(familyId, name) {
+    if (!name) this.tribeNames.delete(familyId);
+    else       this.tribeNames.set(familyId, name);
+  },
 
   _keys:   {},
   _mouse:  { screenX: 0, screenY: 0, worldX: 0, worldY: 0 },
@@ -51,6 +67,7 @@ const Game = {
     this.ui     = new UI();
 
     Images.load();
+    AudioMgr.load();
 
     this._resize();
     window.addEventListener('resize', () => this._resize());
@@ -140,6 +157,7 @@ const Game = {
     dt = Math.min(dt, 0.1) * this.gameSpeed;
 
     if (!this.isPaused) this._update(dt);
+    AudioMgr.updateForState(this);
     this._draw();
 
     requestAnimationFrame(t => this._loop(t));
@@ -151,7 +169,7 @@ const Game = {
     // ── Day phase 계산 ────────────────────────────
     this.dayTime += dt;
     const cycle = CONFIG.DAY_LENGTH + CONFIG.NIGHT_LENGTH;
-    if (this.dayTime >= cycle) this.dayTime -= cycle;
+    if (this.dayTime >= cycle) { this.dayTime -= cycle; this.dayIndex++; }
 
     const t   = this.dayTime;
     let newPhase;
@@ -194,11 +212,23 @@ const Game = {
     for (const ev of this.events) ev.time += dt;
     this.events = this.events.filter(ev => ev.time < 9);
 
+    // 습격 트리거 / 종료 체크
+    this._raidCheckTimer -= dt;
+    if (this._raidCheckTimer <= 0) {
+      this._raidCheckTimer = CONFIG.TRIBE_RAID_CHECK_INTERVAL;
+      this._checkRaidTriggers();
+    }
+    this._checkRaidEnd();
+
     this.ui.update(dt);
 
     // 정리
     this.siljangsukList = this.siljangsukList.filter(s => {
-      if (s.dead) { this.entities.delete(s.id); return false; } return true;
+      if (s.dead && (s.fadeTimer ?? 0) <= 0) {
+        this.entities.delete(s.id);
+        return false;
+      }
+      return true;
     });
     this.humans = this.humans.filter(h => {
       if (h.done) { this.entities.delete(h.id); return false; } return true;
@@ -289,7 +319,7 @@ const Game = {
   },
 
   _checkUnlocks() {
-    const count = this.siljangsukList.filter(s => !s.dead).length;
+    const count = this.siljangsukList.filter(s => !s.dead && !s.slaveOf).length;
     const thresholds = [
       { t: CONFIG.MENU_TIER1, msg: '꽃가루 & 콘페이토 해금!' },
       { t: CONFIG.MENU_TIER2, msg: '대못 & 방수포 해금!'    },
@@ -324,6 +354,44 @@ const Game = {
 
     for (const pc of this.pollenClouds) pc.draw(ctx, camera);
     for (const p of this.particles)    p.draw(ctx, camera);
+
+    // 선택된 조직 영역 — 멤버 둘러싸는 반투명 마커
+    const selTribe = this.ui.selectedTribeId;
+    if (selTribe !== null && selTribe !== undefined) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,220,80,0.18)';
+      ctx.strokeStyle = '#ffe066';
+      ctx.lineWidth = 2;
+      for (const s of this.siljangsukList) {
+        if (s.dead || s.familyId !== selTribe || s.slaveOf) continue;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 50, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 전쟁 중 텍스트 — 각 분쟁 조직 보스 위에 크게
+    if (this.raidingTribes.size > 0) {
+      ctx.save();
+      ctx.font = 'bold 36px "Noto Sans KR", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+      ctx.fillStyle   = '#ff4444';
+      const drawn = new Set();
+      for (const [atk, info] of this.raidingTribes) {
+        for (const fam of [atk, info.targetFamilyId]) {
+          if (drawn.has(fam)) continue;
+          drawn.add(fam);
+          const boss = this.getTribeBoss(fam);
+          if (!boss) continue;
+          ctx.strokeText('⚔ 전쟁 중! ⚔', boss.x, boss.y - 80);
+          ctx.fillText  ('⚔ 전쟁 중! ⚔', boss.x, boss.y - 80);
+        }
+      }
+      ctx.restore();
+    }
 
     // 선택 링
     const sel = this.ui.selectedEntity;
@@ -430,6 +498,156 @@ const Game = {
     if (this.events.length > 10) this.events.shift();
   },
 
+  // ── 조직(혈통) 시스템 ───────────────────────────────
+  _tribeKey(a, b) { return a < b ? `${a}_${b}` : `${b}_${a}`; },
+  addHostility(fromFamily, toFamily, amount = CONFIG.TRIBE_HOSTILITY_PER_ATTACK) {
+    if (!fromFamily || !toFamily || fromFamily === toFamily) return;
+    const k = this._tribeKey(fromFamily, toFamily);
+    this.tribeHostility.set(k, (this.tribeHostility.get(k) ?? 0) + amount);
+  },
+  getHostility(a, b) {
+    if (!a || !b || a === b) return 0;
+    return this.tribeHostility.get(this._tribeKey(a, b)) ?? 0;
+  },
+  getTribeMembers(familyId, adultOnly = false) {
+    return this.siljangsukList.filter(s =>
+      !s.dead && s.familyId === familyId && !s.slaveOf
+      && (!adultOnly || s.stage === 4));
+  },
+  getTribeBoss(familyId) {
+    const members = this.getTribeMembers(familyId, true);
+    if (members.length === 0) return null;
+    return members.reduce((a, b) => {
+      const sa = a.hp + (a.stage4Age || 0) * 0.1;
+      const sb = b.hp + (b.stage4Age || 0) * 0.1;
+      return sa >= sb ? a : b;
+    });
+  },
+
+  // 습격 트리거 체크 (성체 ≥ 20, 식량 부족, 적대감 가장 높은 부족 공격)
+  _checkRaidTriggers() {
+    const tribes = new Map();   // familyId → adult list
+    for (const s of this.siljangsukList) {
+      if (s.dead || s.stage !== 4 || s.slaveOf) continue;
+      if (!tribes.has(s.familyId)) tribes.set(s.familyId, []);
+      tribes.get(s.familyId).push(s);
+    }
+    for (const [fam, members] of tribes) {
+      if (members.length < CONFIG.TRIBE_RAID_MIN_ADULTS) continue;
+      if (this.raidingTribes.has(fam)) continue;
+
+      // 인당 식량 계산
+      let totalFood = 0;
+      const seen = new Set();
+      for (const m of members) {
+        if (m.houseId !== null && !seen.has(m.houseId)) {
+          seen.add(m.houseId);
+          const h = this.getEntity(m.houseId);
+          if (h) totalFood += h.foodReserves;
+        }
+      }
+      const perMember = totalFood / members.length;
+      if (perMember >= CONFIG.TRIBE_FOOD_THRESHOLD) continue;
+
+      // 최고 적대감 타겟 찾기
+      let target = null, maxH = 0;
+      for (const [other] of tribes) {
+        if (other === fam) continue;
+        const h = this.getHostility(fam, other);
+        if (h > maxH) { maxH = h; target = other; }
+      }
+      if (target === null) continue;
+
+      // 습격 개시
+      const defenderMembers = this.getTribeMembers(target, true);
+      this.raidingTribes.set(fam, {
+        targetFamilyId: target,
+        originalSize:   members.length,
+      });
+      this.defendingTribes.set(target, {
+        attackerFamilyId: fam,
+        originalSize:     defenderMembers.length,
+      });
+      for (const m of members)   m.raidTarget   = target;
+      for (const d of defenderMembers) d.defendAgainst = fam;
+      const boss = this.getTribeBoss(fam);
+      this.logEvent(`⚔️ ${boss?.label ?? fam} 조직이 ${target} 조직 습격!`, '#ff4444');
+    }
+  },
+
+  // 습격 종료 조건 체크
+  _checkRaidEnd() {
+    for (const [fam, info] of this.raidingTribes) {
+      const cur = this.getTribeMembers(fam, true).length;
+      if (cur <= info.originalSize / 3) {
+        this._endRaid(fam, info.targetFamilyId, 'attacker_broken');
+      }
+    }
+    for (const [fam, info] of this.defendingTribes) {
+      const cur = this.getTribeMembers(fam, true).length;
+      if (cur <= info.originalSize / 2) {
+        this._defenderCollapse(fam, info.attackerFamilyId);
+      }
+    }
+  },
+
+  _defenderCollapse(defFam, atkFam) {
+    // 방어측 1/2 이상 줄어듦 → 남은 절반 도망, 절반 노예
+    const remaining = this.getTribeMembers(defFam, true);
+    if (remaining.length === 0) {
+      this._endRaid(atkFam, defFam, 'defender_defeated');
+      return;
+    }
+    const mid = Math.ceil(remaining.length / 2);
+    const flee = remaining.slice(0, mid);
+    const enslave = remaining.slice(mid);
+
+    for (const f of flee) {
+      f.fleeing = true;
+      f.fleeTimer = 30;
+      const ang = Math.random() * Math.PI * 2;
+      f.targetX = Utils.clamp(f.x + Math.cos(ang) * 1500, 20, CONFIG.WORLD_WIDTH - 20);
+      f.targetY = Utils.clamp(f.y + Math.sin(ang) * 1500, 20, CONFIG.WORLD_HEIGHT - 20);
+      f.defendAgainst = null;
+    }
+    const masterBoss = this.getTribeBoss(atkFam);
+    for (const e of enslave) {
+      e.slaveOf = masterBoss?.id ?? null;
+      e.defendAgainst = null;
+      this.logEvent(`⛓️ ${e.label} 노예로 전락`, '#cc6666');
+    }
+    this._endRaid(atkFam, defFam, 'defender_defeated');
+  },
+
+  _endRaid(atkFam, defFam, reason) {
+    // 공격측 승리 → 방어측 집 식량 약탈해서 공격측 보스 집으로
+    if (reason === 'defender_defeated') {
+      const atkBoss = this.getTribeBoss(atkFam);
+      const atkHouse = atkBoss ? this.getEntity(atkBoss.houseId) : null;
+      let loot = 0;
+      const defHouses = this.houses.filter(h => {
+        const owner = this.getEntity(h.ownerId);
+        return owner && owner.familyId === defFam;
+      });
+      for (const dh of defHouses) {
+        loot += dh.foodReserves;
+        dh.foodReserves = 0;
+        dh.takeDamage(dh.maxHp);
+        if (dh.hp <= 0) this.destroyHouse(dh);
+      }
+      if (atkHouse) atkHouse.foodReserves += loot;
+      if (loot > 0) this.logEvent(`💰 습격 승리! 식량 ${Math.floor(loot)} 약탈`, '#ffe066');
+    } else {
+      this.logEvent(`🕊 습격 종료 (공격측 와해)`, '#aaaaaa');
+    }
+    this.raidingTribes.delete(atkFam);
+    this.defendingTribes.delete(defFam);
+    for (const s of this.siljangsukList) {
+      if (s.raidTarget === defFam) s.raidTarget = null;
+      if (s.defendAgainst === atkFam) s.defendAgainst = null;
+    }
+  },
+
   destroyHouse(house) {
     for (const s of this.siljangsukList) {
       if (s.houseId === house.id) s.houseId = null;
@@ -480,10 +698,12 @@ const Game = {
   _bindInput() {
     window.addEventListener('keydown', e => {
       this._keys[e.code] = true;
+      AudioMgr.startOnGesture();
+      if (e.code === 'KeyM') AudioMgr.toggleMute();
 
       const num = parseInt(e.key);
       if (!isNaN(num) && num >= 1 && num <= 10) {
-        const alive = this.siljangsukList.filter(s => !s.dead).length;
+        const alive = this.siljangsukList.filter(s => !s.dead && !s.slaveOf).length;
         const avail = MENU_ITEMS.filter(m => alive >= m.unlock || this.cheatUnlockAll);
         const idx   = num - 1;
         if (idx < avail.length) {
@@ -505,7 +725,8 @@ const Game = {
       if (e.code === 'Space') { e.preventDefault(); this.isPaused = !this.isPaused; }
       if (e.code === 'F5')   { e.preventDefault(); if (SaveLoad.save(this)) this.addParticle(this.camera.x + this.canvas.width/this.camera.zoom/2, this.camera.y + 60, '💾 저장 완료', '#ffe066', 1800); }
       if (e.code === 'F9')   { e.preventDefault(); if (SaveLoad.load(this)) this.addParticle(this.camera.x + this.canvas.width/this.camera.zoom/2, this.camera.y + 60, '📂 불러오기 완료', '#66aaff', 1800); }
-      if (e.code === 'KeyH') this.ui.showHelp = !this.ui.showHelp;
+      if (e.code === 'KeyH') this.ui.showHelp   = !this.ui.showHelp;
+      if (e.code === 'KeyT') this.ui.showTribes = !this.ui.showTribes;
       if (e.code === 'Escape') { this.ui.selectedEntity = null; this.ui.selectedMenu = -1; }
     });
 
@@ -525,6 +746,7 @@ const Game = {
     });
 
     window.addEventListener('click', e => {
+      AudioMgr.startOnGesture();
       const sx = e.clientX, sy = e.clientY;
       const wx = this._mouse.worldX, wy = this._mouse.worldY;
 
@@ -535,6 +757,7 @@ const Game = {
         }
       }
 
+      if (this.ui.handleTribePanelClick(sx, sy, this)) return;
       if (this.ui.handleRenameClick(sx, sy, this)) return;
       if (this.ui.handlePniepnieClick(sx, sy, this)) return;
 
@@ -581,6 +804,18 @@ const Game = {
             this.entities.set(h.id, h);
             return;
           }
+          // 쓰레기통 배치
+          if (menuItem.type === 'trashcan') {
+            this.trashCans.push(new TrashCan(wx, wy));
+            return;
+          }
+          // 수돗가 배치
+          if (menuItem.type === 'tap') {
+            this.world.waterSpots.push({ type: 'tap', x: wx, y: wy, r: 28 });
+            this.world._bgDirty = true;  // 배경 다시 그림
+            this.addParticle(wx, wy - 12, '🚰', '#88ccff', 1500);
+            return;
+          }
           const isFoodMenu = menuItem.type === 'food';
           const count = isFoodMenu ? 3 : 1;
           for (let i2 = 0; i2 < count; i2++) {
@@ -591,14 +826,7 @@ const Game = {
         }
       }
 
-      // 운치굴 클릭 감지
-      for (const h of this.houses) {
-        if (Utils.distance({ x: wx, y: wy }, { x: h.unciX, y: h.unciY }) < CONFIG.UNCI_RADIUS + 14) {
-          this.ui.selectedEntity = h;
-          this.ui.viewingUnci    = true;
-          return;
-        }
-      }
+      // 운치굴은 더이상 클릭 대상 아님 — 운치 양만 그림으로 표시
       this.ui.viewingUnci = false;
 
       this.ui.handleClick(wx, wy, this);

@@ -20,7 +20,25 @@ class House {
     const angle = Math.random() * Math.PI * 2;
     this.unciX = this.cx + Math.cos(angle) * CONFIG.UNCI_DIST;
     this.unciY = this.cy + Math.sin(angle) * CONFIG.UNCI_DIST;
+
+    // 빈집 여부 (모든 거주자 사망/이탈 시 true)
+    this.vacant = false;
   }
+
+  // 집 라벨 — 주인의 라벨 또는 '빈집'
+  get label() {
+    if (this.vacant) return '🏚 빈집';
+    const owner = Game.getEntity(this.ownerId);
+    if (owner && !owner.dead && owner.label) return `🏠 ${owner.label}의 집`;
+    return '🏠 집';
+  }
+
+  // 살아있는 거주자 목록 (노예 제외)
+  getOccupants() {
+    return Game.siljangsukList.filter(s =>
+      !s.dead && s.houseId === this.id && !s.slaveOf);
+  }
+  getOccupantCount() { return this.getOccupants().length; }
 
   get cx() { return this.x + this.w / 2; }
   get cy() { return this.y + this.h / 2; }
@@ -52,6 +70,36 @@ class House {
     if (this._underAttack) {
       this._attackCooldownTimer = (this._attackCooldownTimer ?? 0) - dt;
       if (this._attackCooldownTimer <= 0) this._underAttack = false;
+    }
+
+    // 빈집 자동 감지 (거주자 0이면 vacant)
+    const occ = this.getOccupantCount();
+    if (!this.vacant && occ === 0) {
+      this.vacant = true;
+      this.ownerId = null;
+      if (Game.logEvent) Game.logEvent(`🏚 집이 비었음 (빈집)`, '#999999');
+    } else if (this.vacant && occ > 0) {
+      this.vacant = false;
+    }
+
+    // 노예가 운치굴에 있으면 같은 집 거주자들 행복 ↑
+    const slavesInUnci = Game.siljangsukList.filter(s =>
+      !s.dead && s.slaveOf && this.isInUnci(s.x, s.y));
+    if (slavesInUnci.length > 0) {
+      const occupants = this.getOccupants();
+      const gain = CONFIG.HAPPINESS_SLAVE_IN_UNCI_GAIN * slavesInUnci.length * dt;
+      for (const o of occupants) o.happiness = Math.min(100, o.happiness + gain);
+    }
+
+    // stage4 이상 노예는 1마리만 — 초과분은 도살(고기로)
+    const adultSlavesHere = Game.siljangsukList.filter(s =>
+      !s.dead && s.slaveOf && s.stage === 4 && this.isInUnci(s.x, s.y));
+    if (adultSlavesHere.length > 1) {
+      // 가장 늦게 들어온 것부터 처분 (id 큰 것)
+      adultSlavesHere.sort((a, b) => b.id - a.id);
+      for (let i = 0; i < adultSlavesHere.length - 1; i++) {
+        adultSlavesHere[i]._die(Game, '도살');
+      }
     }
   }
 
@@ -114,8 +162,23 @@ class House {
     ctx.fillStyle = 'rgba(0,0,0,0.18)';
     ctx.fillRect(x + 6, y + 8, w, h);
 
-    // ── 벽 ────────────────────────────────────────
     const hpRatio = hp / maxHp;
+
+    // PNG 가 있으면 우선 사용 (항상 반투명 — 내부에서 무슨 일이 일어나는지 보이게)
+    const houseImg = Images.getHouse && Images.getHouse();
+    if (houseImg) {
+      ctx.save();
+      ctx.globalAlpha = this.vacant ? 0.35 : 0.55;
+      ctx.drawImage(houseImg, x - 6, y - 12, w + 12, h + 18);
+      ctx.restore();
+      this._drawHpAndLabel(ctx, hpRatio);
+      return;
+    }
+
+    // 항상 반투명 — 내부 가시화
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    // ── 벽 ────────────────────────────────────────
     const wallColor = hpRatio > 0.6 ? '#d4884a' : hpRatio > 0.3 ? '#b86a30' : '#8a4820';
     ctx.fillStyle = wallColor;
     ctx.fillRect(x, y + h * 0.25, w, h * 0.75);
@@ -148,6 +211,8 @@ class House {
       ctx.globalAlpha = 1;
     }
 
+    ctx.restore(); // 반투명 종료
+
     // ── HP 바 ─────────────────────────────────────
     const bw = w;
     ctx.fillStyle = '#333';
@@ -166,6 +231,28 @@ class House {
     if (this.foodReserves > 0) {
       ctx.fillStyle = '#ff9944';
       ctx.font = '10px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`🍱${Math.floor(this.foodReserves)}`, x + w, y - 20);
+    }
+  }
+
+  // PNG 모드용: HP·식량·운치 일부만 그림
+  _drawHpAndLabel(ctx, hpRatio) {
+    const { x, y, w, comfort } = this;
+    const bw = w;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(x, y - 16, bw, 6);
+    ctx.fillStyle = hpRatio > 0.6 ? '#44cc44' : hpRatio > 0.3 ? '#cccc44' : '#cc4444';
+    ctx.fillRect(x, y - 16, bw * hpRatio, 6);
+
+    ctx.font = '10px sans-serif';
+    ctx.fillStyle = '#ffe066';
+    ctx.textAlign = 'left';
+    const stars = Math.round(comfort / 20);
+    ctx.fillText('★'.repeat(stars), x, y - 20);
+
+    if (this.foodReserves > 0) {
+      ctx.fillStyle = '#ff9944';
       ctx.textAlign = 'right';
       ctx.fillText(`🍱${Math.floor(this.foodReserves)}`, x + w, y - 20);
     }

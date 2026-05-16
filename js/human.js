@@ -5,7 +5,7 @@
 // Type 3 = cat (wanders, attacks like type 2 but faster)
 
 const HUMAN_COLORS = ['#5588ee', '#66cc66', '#ee5555', '#ff9944'];
-const HUMAN_LABELS = ['인간(무시형)', '인간(공급형)', '인간(공격형)', '고양이'];
+const HUMAN_LABELS = ['방치파', '애호파', '학대파', '고양이'];
 
 class Human {
   constructor(type) {
@@ -22,8 +22,9 @@ class Human {
 
     this.targetX  = Utils.random(W * 0.1, W * 0.9);
     this.targetY  = Utils.random(H * 0.1, H * 0.9);
-    this.speed    = type === 3 ? 160 : 95;
-    this.hp       = type === 3 ? 30 : 60;
+    // 학대파(type 2)는 매우 빠르고 강함, 거의 죽지 않음
+    this.speed = type === 3 ? 160 : (type === 2 ? 220 : 95);
+    this.hp    = type === 3 ? 30  : (type === 2 ? 500 : 60);
     this.maxHp    = this.hp;
     this.done     = false;
     this.stateTimer = 0;
@@ -86,29 +87,51 @@ class Human {
   }
 
   _behaviorAttacker(dt, game) {
-    // Seek nearest siljangsuk and attack
-    const target = game.findNearestSiljangsuk(this.x, this.y, 600, s => !s.dead);
+    // 학대파: 성체 위주로 공격, 집도 파괴, 반격 불가(반격 무효 처리)
+    let target = game.findNearestSiljangsuk(this.x, this.y, 1200, s => !s.dead && !s.hidden && s.stage === 4);
+    if (!target) target = game.findNearestSiljangsuk(this.x, this.y, 800, s => !s.dead && !s.hidden);
     if (target) {
       this.targetX = target.x;
       this.targetY = target.y;
-      if (Utils.distance(this, target) < 30 && this.attackCooldown <= 0) {
-        const dmg = 15;
+      if (Utils.distance(this, target) < 32 && this.attackCooldown <= 0) {
+        const dmg = 40;            // 매우 강함
         target.hp = Math.max(0, target.hp - dmg);
-        // 실장석이 반격 여부를 스스로 판단하게 함
-        target.lastAttackerId    = this.id;
-        target.counterAttackTimer = 5;
-        game.addParticle(target.x, target.y - 18, `-${dmg}`, '#ff2222', 1000);
-        this.attackCooldown = 1.2;
+        target.hitFlashTimer = 0.35;
+        // 반격 불가: lastAttackerId 안 세팅
+        game.addParticle(target.x, target.y - 18, `-${dmg}(학대)`, '#ff0000', 1200);
+        for (let i = 0; i < 5; i++) {
+          game.addParticle(target.x + Utils.random(-8, 8), target.y - 6, '•', '#cc1818', 700);
+        }
+        this.attackCooldown = 0.6;
       }
-    } else {
-      this._wanderAround(dt);
+      return;
     }
+    // 타겟 없으면 집 파괴 시도
+    if (game.houses && game.houses.length > 0) {
+      let nearestHouse = null, bestD = 1500;
+      for (const h of game.houses) {
+        const d = Utils.distance(this, { x: h.cx, y: h.cy });
+        if (d < bestD) { bestD = d; nearestHouse = h; }
+      }
+      if (nearestHouse) {
+        this.targetX = nearestHouse.cx;
+        this.targetY = nearestHouse.cy;
+        if (bestD < 55 && this.attackCooldown <= 0) {
+          nearestHouse.takeDamage(25);
+          this.attackCooldown = 0.8;
+          game.addParticle(nearestHouse.cx, nearestHouse.cy, '💥', '#ff0000', 800);
+          if (nearestHouse.hp <= 0) game.destroyHouse(nearestHouse);
+        }
+        return;
+      }
+    }
+    this._wanderAround(dt);
   }
 
   _behaviorCat(dt, game) {
     // Like attacker but prefers smaller stages
     const target = game.findNearestSiljangsuk(this.x, this.y, 500,
-      s => !s.dead && s.stage <= 3);
+      s => !s.dead && !s.hidden && s.stage <= 3);
     if (target) {
       this.targetX = target.x;
       this.targetY = target.y;

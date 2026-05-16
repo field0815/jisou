@@ -1,7 +1,7 @@
 const ITEM_TYPES = {
-  food_bad:   { label: '맛없는 음식', color: '#c87010', shape: 'star',   foodVal: [3,6],   happy: -5  },
-  food_normal:{ label: '그냥그런 음식', color: '#e8920a', shape: 'circle', foodVal: [6,10],  happy: 0   },
-  food_good:  { label: '맛있는 음식', color: '#ff6060', shape: 'heart',  foodVal: [10,15], happy: 10  },
+  food_bad:   { label: '맛없는 음식', color: '#c87010', shape: 'star',   foodVal: [12,15],   happy: -1  },
+  food_normal:{ label: '그냥그런 음식', color: '#e8920a', shape: 'circle', foodVal: [8,13],  happy: 0   },
+  food_good:  { label: '맛있는 음식', color: '#ff6060', shape: 'heart',  foodVal: [8,10], happy: 2  },
   paper:      { label: '폐지',       color: '#d8d8b0', shape: 'rect',   foodVal: [0,0],   happy: 0   },
   leaf:       { label: '낙엽',       color: '#88c038', shape: 'leaf',   foodVal: [0,0],   happy: 0   },
   pollen:     { label: '꽃가루',     color: '#ffee44', shape: 'circle', foodVal: [0,0],   happy: 0   },

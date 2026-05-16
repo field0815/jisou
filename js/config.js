@@ -6,11 +6,11 @@ const CONFIG = {
   ZOOM_MAX: 2.5,
   CAMERA_SPEED: 350,
 
-  // 하루 = 90초: 아침 10s + 낮 50s + 저녁 10s + 밤 20s
-  DAY_LENGTH:     70,   // 아침+낮+저녁 (= 전체 - 밤)
-  NIGHT_LENGTH:   20,
-  MORNING_LENGTH: 10,
-  EVENING_LENGTH: 10,
+  // 아침 15s + 낮 120s + 저녁 20s + 밤 40s (전체 195s)
+  DAY_LENGTH:     155,  // 아침(15) + 낮(120) + 저녁(20)
+  NIGHT_LENGTH:   40,
+  MORNING_LENGTH: 15,
+  EVENING_LENGTH: 20,
   // 낮 페이즈: DAY_LENGTH - EVENING_LENGTH 부터 DAY_LENGTH 직전까지
 
   ITEM_SPAWN_INTERVAL: 3.5,
@@ -33,7 +33,8 @@ const CONFIG = {
   GROWTH_RATE_MID:    4 / 90,
   GROWTH_RATE_HIGH:   8 / 90,
 
-  SATIATION_LOSS_PER_SEC: 0.12,
+  SATIATION_LOSS_PER_SEC:    0.3,   // 기본 (정지 시)
+  SATIATION_LOSS_MOVING:     0.5,   // 이동 시 (대체)
   HUNGER_THRESHOLD: 0.3,
   FULL_THRESHOLD: 0.7,
 
@@ -45,7 +46,10 @@ const CONFIG = {
   HAPPINESS_DEFECATE_GAIN:  5,      // 운치굴에서 배변하면 (이벤트)
   HAPPINESS_CHILD_DEATH:    15,     // 자식이 죽으면 (이벤트, 부모 happiness -=)
 
-  PNIEPNIE_TIMEOUT: 80,
+  PNIEPNIE_TIMEOUT: 240,            // 2일(120s × 2) 안 받으면 사망
+
+  // 충돌 / 단계별 크기 (px)
+  STAGE_COLLISION:[0, 2, 6, 12, 24],
 
   PREGNANCY_DURATION: 60,
   PREGNANCY_CHANCE_PER_SEC: 0.004, // 약 250초당 1회 자동 임신 시도 (꽃가루는 추가 가속)
@@ -54,6 +58,17 @@ const CONFIG = {
 
   // stage 4 도달 후 이 시간이 지나면 부모 집을 떠나 자기 집을 지음
   STAGE4_MOVEOUT_TIME: 90,         // 90초 ≈ 1일
+
+  // 행복 추가 상수
+  HAPPINESS_COMBAT_GAIN:  3,       // 공격 시도 1회마다
+  HAPPINESS_PLAY_GAIN:    8,       // 놀이 1회
+  HAPPINESS_SLAVE_IN_UNCI_GAIN: 0.03, // 노예가 운치굴에 있을 때 같은 집 거주자 (초당)
+
+  // 조직 / 습격
+  TRIBE_RAID_MIN_ADULTS:  20,      // 습격 가능 성체 최소 수
+  TRIBE_FOOD_THRESHOLD:   5,       // 인당 비축 식량이 이 미만이면 식량 부족
+  TRIBE_HOSTILITY_PER_ATTACK: 1,
+  TRIBE_RAID_CHECK_INTERVAL:  20,  // 초마다 raid 트리거 체크
 
   HOUSE_WIDTH: 90,
   HOUSE_HEIGHT: 70,

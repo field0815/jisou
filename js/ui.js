@@ -1,10 +1,12 @@
 // ── UI Manager ──────────────────────────────────────────
 class UI {
   constructor() {
-    this.selectedMenu = -1;  // index into MENU_ITEMS
+    this.selectedMenu = -1;
     this.selectedEntity = null;
     this.announcements = [];
     this.showHelp = false;
+    this.showTribes = false;
+    this.selectedTribeId = null;   // 영역 강조용
     this.viewingUnci = false;
   }
 
@@ -22,6 +24,7 @@ class UI {
     this._drawStatPanel(ctx, canvas, game);
     this._drawPopCount(ctx, canvas, game);
     this._drawEventLog(ctx, canvas, game);
+    this._drawTribePanel(ctx, canvas, game);
     this._drawHelp(ctx, canvas);
     for (const a of this.announcements) a.draw(ctx, canvas);
   }
@@ -94,20 +97,22 @@ class UI {
     const min  = Math.floor(game.dayTime / 60);
     const sec  = Math.floor(game.dayTime % 60);
     const phaseEmoji = { morning: '🌅 아침', day: '☀️ 낮', evening: '🌆 저녁', night: '🌙 밤' };
-    const label = `${phaseEmoji[game.dayPhase] ?? '☀️'} ${min}:${String(sec).padStart(2,'0')}`;
+    const dayN = (game.dayIndex ?? 0) + 1;
+    const label = `${phaseEmoji[game.dayPhase] ?? '☀️'} ${min}:${String(sec).padStart(2,'0')} · ${dayN}일차`;
     ctx.fillText(label, canvas.width / 2, by + bh + 16);
   }
 
   // ── Population count ────────────────────────────────────
   _drawPopCount(ctx, canvas, game) {
-    const alive = game.siljangsukList.filter(s => !s.dead).length;
+    const alive  = game.siljangsukList.filter(s => !s.dead && !s.slaveOf).length;
+    const slaves = game.siljangsukList.filter(s => !s.dead &&  s.slaveOf).length;
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    Utils.roundRect(ctx, 10, 10, 130, 28, 6);
+    Utils.roundRect(ctx, 10, 10, 180, 28, 6);
     ctx.fill();
     ctx.fillStyle = '#eee';
     ctx.font = 'bold 13px "Noto Sans KR", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`실장석: ${alive}마리`, 18, 29);
+    ctx.fillText(`실장석: ${alive}마리 (노예 ${slaves})`, 18, 29);
   }
 
   // ── Bottom menu bar ─────────────────────────────────────
@@ -178,12 +183,99 @@ class UI {
     this._menuItemCount = items.length;
   }
 
+  // ── 조직 패널 (왼쪽 위, T 키 토글) ──────────────────────
+  _drawTribePanel(ctx, canvas, game) {
+    // 토글 버튼 (인구 카운터 아래)
+    const tbx = 10, tby = 44, tbw = 80, tbh = 22;
+    ctx.fillStyle = this.showTribes ? 'rgba(255,220,80,0.5)' : 'rgba(0,0,0,0.55)';
+    ctx.strokeStyle = '#ffe066';
+    ctx.lineWidth = 1;
+    Utils.roundRect(ctx, tbx, tby, tbw, tbh, 5);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ffe066';
+    ctx.font = 'bold 11px "Noto Sans KR", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🏛 조직 (T)', tbx + tbw / 2, tby + 15);
+    this._tribeBtnArea = { x: tbx, y: tby, w: tbw, h: tbh };
+
+    if (!this.showTribes) { this._tribeRowAreas = []; return; }
+
+    // 조직 그룹화
+    const tribes = new Map();   // familyId → { members, adults, boss, houseCount }
+    for (const s of game.siljangsukList) {
+      if (s.dead || s.slaveOf) continue;
+      if (!tribes.has(s.familyId)) tribes.set(s.familyId, { members: 0, adults: 0, fam: s.familyId });
+      const t = tribes.get(s.familyId);
+      t.members++;
+      if (s.stage === 4) t.adults++;
+    }
+
+    const px = 10, py = 74, pw = 280;
+    const rowH = 56;
+    const ph = Math.min(canvas.height - py - 40, 40 + tribes.size * rowH);
+
+    ctx.fillStyle = 'rgba(10,8,5,0.88)';
+    ctx.strokeStyle = '#ffe066';
+    ctx.lineWidth = 1.5;
+    Utils.roundRect(ctx, px, py, pw, ph, 8);
+    ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = '#ffe066';
+    ctx.font = 'bold 12px "Noto Sans KR", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('조직 목록 (클릭→영역 강조)', px + 10, py + 18);
+
+    this._tribeRowAreas = [];
+    let i = 0;
+    for (const [fam, info] of tribes) {
+      const ry = py + 30 + i * rowH;
+      if (ry + rowH > py + ph) break;
+
+      const boss = game.getTribeBoss(fam);
+      const selected = this.selectedTribeId === fam;
+      ctx.fillStyle = selected ? 'rgba(255,220,80,0.25)' : 'rgba(255,255,255,0.04)';
+      ctx.strokeStyle = selected ? '#ffe066' : 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = selected ? 2 : 1;
+      Utils.roundRect(ctx, px + 6, ry, pw - 12, rowH - 4, 5);
+      ctx.fill(); ctx.stroke();
+
+      const name = game.tribeLabel(fam);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px "Noto Sans KR", sans-serif';
+      ctx.fillText(`${name}`, px + 12, ry + 15);
+
+      ctx.fillStyle = '#bbb';
+      ctx.font = '10px "Noto Sans KR", sans-serif';
+      ctx.fillText(`보스: ${boss?.label ?? '?'} · 인원 ${info.members} (성체 ${info.adults})`, px + 12, ry + 30);
+
+      // 최고 적대 조직
+      let hostile = null, hMax = 0;
+      for (const [other] of tribes) {
+        if (other === fam) continue;
+        const v = game.getHostility(fam, other);
+        if (v > hMax) { hMax = v; hostile = other; }
+      }
+      if (hostile !== null) {
+        ctx.fillStyle = '#ff8888';
+        ctx.fillText(`⚔ vs ${game.tribeLabel(hostile)} (${hMax})`, px + 12, ry + 45);
+      } else {
+        ctx.fillStyle = '#88cc88';
+        ctx.fillText('평화 상태', px + 12, ry + 45);
+      }
+
+      this._tribeRowAreas.push({ x: px + 6, y: ry, w: pw - 12, h: rowH - 4, familyId: fam });
+      i++;
+    }
+
+    // 선택된 조직 영역 강조 (월드 좌표) — game._draw 에서 따로
+  }
+
   // ── Entity status panel ─────────────────────────────────
   _drawStatPanel(ctx, canvas, game) {
     const ent = this.selectedEntity;
     if (!ent || ent.dead || ent.done) { this.selectedEntity = null; return; }
 
-    const pw = 250, ph = 260;
+    const pw = 260, ph = 310;
     const px = 14, py = canvas.height - ph - 120;
 
     ctx.fillStyle = 'rgba(10,8,5,0.82)';
@@ -216,6 +308,8 @@ class UI {
       this._renameBtn = { x: rbX, y: rbY, w: rbW, h: rbH, target: ent };
 
       const lines = [
+        ['번호',  `#${ent.serialNo ?? '?'}`],
+        ['조직',  `${ent.familyId}` + (ent.raidTarget ? ' (습격 중)' : ent.defendAgainst ? ' (방어 중)' : '')],
         ['HP',    info.hp],
         ['포만',  info.satiation],
         ['행복',  info.happiness],
@@ -263,7 +357,7 @@ class UI {
       this._renameBtn = null;
     }
     if (ent instanceof House) {
-      const title = this.viewingUnci ? '💩 운치굴' : '🏠 집';
+      const title = this.viewingUnci ? '💩 운치굴' : (ent.label ?? '🏠 집');
       ctx.fillText(title, px + 12, py + 22);
 
       if (this.viewingUnci) {
@@ -359,7 +453,7 @@ class UI {
       '클릭(실장석/집/인간): 상태 확인',
       '1단계 패널 → 프니프니 버튼',
       'F5: 저장  F9: 불러오기',
-      'Space: 일시정지  H: 도움말',
+      'Space: 일시정지  H: 도움말  T: 조직패널',
       '배속 버튼(우상단): 1×/2×/4×/8×',
     ];
     ctx.fillStyle = '#ccc';
@@ -400,7 +494,29 @@ class UI {
     }
 
     this.selectedEntity = picked;
+    // 실장석 클릭 시 대사 출력
+    if (picked && picked._say) picked._say('idle');
     return picked;
+  }
+
+  // 조직 패널 토글 버튼 / 행 클릭
+  handleTribePanelClick(sx, sy, game) {
+    if (this._tribeBtnArea) {
+      const b = this._tribeBtnArea;
+      if (sx >= b.x && sx <= b.x + b.w && sy >= b.y && sy <= b.y + b.h) {
+        this.showTribes = !this.showTribes;
+        return true;
+      }
+    }
+    if (this.showTribes && this._tribeRowAreas) {
+      for (const r of this._tribeRowAreas) {
+        if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) {
+          this.selectedTribeId = (this.selectedTribeId === r.familyId) ? null : r.familyId;
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   handleRenameClick(screenX, screenY, game) {
@@ -444,14 +560,16 @@ class UI {
 
 // ── Menu item definitions ────────────────────────────────
 const MENU_ITEMS = [
-  { label: '음식물',   icon: '🍱', type: 'food',    unlock: 0  },
-  { label: '폐지',     icon: '📄', type: 'paper',   unlock: 0  },
-  { label: '낙엽',     icon: '🍂', type: 'leaf',    unlock: 0  },
-  { label: '꽃가루',   icon: '🌸', type: 'pollen',  unlock: CONFIG.MENU_TIER1 },
-  { label: '콘페이토', icon: '🍬', type: 'confetto',unlock: CONFIG.MENU_TIER1 },
-  { label: '대못',     icon: '🔩', type: 'nail',    unlock: CONFIG.MENU_TIER2 },
-  { label: '방수포',   icon: '🏕️', type: 'tarp',    unlock: CONFIG.MENU_TIER2 },
-  { label: '공급형 인간', icon: '🧑', type: 'human_1', unlock: 0 },
-  { label: '공격형 인간', icon: '👊', type: 'human_2', unlock: 0 },
+  { label: '음식물',   icon: '🍱', type: 'food',     unlock: 0 },
+  { label: '폐지',     icon: '📄', type: 'paper',    unlock: 0 },
+  { label: '낙엽',     icon: '🍂', type: 'leaf',     unlock: 0 },
+  { label: '꽃가루',   icon: '🌸', type: 'pollen',   unlock: 0 },              // 1단계부터 가능
+  { label: '콘페이토', icon: '🍬', type: 'confetto', unlock: CONFIG.MENU_TIER1 },
+  { label: '대못',     icon: '🔩', type: 'nail',     unlock: CONFIG.MENU_TIER2 },
+  { label: '방수포',   icon: '🏕️', type: 'tarp',     unlock: CONFIG.MENU_TIER2 },
+  { label: '쓰레기통', icon: '🗑️', type: 'trashcan', unlock: 0 },
+  { label: '수돗가',   icon: '🚰', type: 'tap',      unlock: 0 },
+  { label: '애호파 인간', icon: '🧑', type: 'human_1', unlock: 0 },
+  { label: '학대파 인간', icon: '👊', type: 'human_2', unlock: 0 },
   { label: '고양이',      icon: '🐱', type: 'cat',     unlock: 0 },
 ];

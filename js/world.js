@@ -4,7 +4,8 @@ class World {
     this.bushes = [];
     this.paths = [];
     this.pond = null;
-    this._bg = null;       // offscreen canvas for static bg
+    this.waterSpots = [];  // {type:'pond'|'fountain'|'tap', x, y, r}
+    this._bg = null;
     this._bgDirty = true;
     this._generate();
   }
@@ -15,6 +16,14 @@ class World {
 
     // Pond
     this.pond = { x: W * 0.7, y: H * 0.25, rx: 180, ry: 120 };
+
+    // 물 시설: 연못 1, 분수대 2, 수돗가 3 (공원 곳곳에 분산)
+    this.waterSpots.push({ type: 'pond',     x: this.pond.x, y: this.pond.y, r: 130 });
+    this.waterSpots.push({ type: 'fountain', x: W * 0.25,    y: H * 0.65,    r: 60 });
+    this.waterSpots.push({ type: 'fountain', x: W * 0.55,    y: H * 0.85,    r: 60 });
+    this.waterSpots.push({ type: 'tap',      x: W * 0.12,    y: H * 0.18,    r: 28 });
+    this.waterSpots.push({ type: 'tap',      x: W * 0.85,    y: H * 0.55,    r: 28 });
+    this.waterSpots.push({ type: 'tap',      x: W * 0.40,    y: H * 0.10,    r: 28 });
 
     // Trees
     for (let i = 0; i < 320; i++) {
@@ -146,8 +155,39 @@ class World {
       c.fill();
     }
 
+    // 분수대 / 수돗가 그리기 (연못은 위에서 이미 그림)
+    for (const w of this.waterSpots) {
+      if (w.type === 'fountain') {
+        c.fillStyle = '#88aacc';
+        c.beginPath(); c.arc(w.x, w.y, w.r, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#5588cc';
+        c.beginPath(); c.arc(w.x, w.y, w.r * 0.7, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#cce6ff';
+        c.beginPath(); c.arc(w.x, w.y, w.r * 0.35, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#fff'; c.font = '14px sans-serif'; c.textAlign = 'center';
+        c.fillText('⛲', w.x, w.y + 5);
+      } else if (w.type === 'tap') {
+        c.fillStyle = '#aaa';
+        c.fillRect(w.x - 6, w.y - 16, 12, 24);
+        c.fillStyle = '#5588cc';
+        c.beginPath(); c.arc(w.x, w.y + 12, 14, 0, Math.PI * 2); c.fill();
+        c.font = '12px sans-serif'; c.textAlign = 'center';
+        c.fillText('🚰', w.x, w.y + 4);
+      }
+    }
+
     this._bg = oc;
     this._bgDirty = false;
+  }
+
+  // 가장 가까운 물 시설
+  findNearestWater(x, y) {
+    let best = null, bestD = Infinity;
+    for (const w of this.waterSpots) {
+      const d = Utils.distance({ x, y }, w);
+      if (d < bestD) { bestD = d; best = w; }
+    }
+    return best;
   }
 
   draw(ctx, camera) {
