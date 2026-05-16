@@ -9,56 +9,19 @@
 <body>
   <canvas id="gameCanvas"></canvas>
 
-  <!-- BGM 컨트롤 패널 (우상단 고정) -->
+  <!-- BGM 컨트롤 패널 (우상단 고정, 볼륨 + 음소거만) -->
   <div id="bgmPanel" style="
        position:fixed; top:40px; right:14px; z-index:50;
        background:rgba(10,8,5,0.85); color:#eee;
        font-family:'Noto Sans KR',sans-serif; font-size:11px;
-       padding:8px 10px; border:1px solid #ffe066; border-radius:8px;
-       min-width:200px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;"
-         onclick="document.getElementById('bgmBody').style.display =
-                  document.getElementById('bgmBody').style.display==='none' ? 'block' : 'none';">
-      <span style="color:#ffe066; font-weight:bold;">🎵 BGM</span>
-      <button onclick="event.stopPropagation(); AudioMgr.toggleMute();
-                       this.textContent = AudioMgr.muted ? '🔇' : '🔊';"
-              style="background:none; border:none; color:#fff; font-size:14px; cursor:pointer;">🔊</button>
-    </div>
-    <div id="bgmBody" style="margin-top:8px;">
-      <div style="margin:4px 0;">
-        <label>볼륨
-          <input type="range" min="0" max="100" value="35"
-                 oninput="AudioMgr.setVolume(this.value/100)" style="width:120px;">
-        </label>
-      </div>
-      <div style="margin:6px 0;">
-        <div style="color:#88ccff;">☀️ 낮 BGM</div>
-        <input type="file" accept="audio/*" id="bgmDay"
-               onchange="AudioMgr.loadFromFile('day', this.files[0]);
-                         document.getElementById('bgmDayName').textContent = this.files[0]?.name || '';"
-               style="font-size:10px; width:100%;">
-        <div id="bgmDayName" style="color:#888; font-size:10px;"></div>
-      </div>
-      <div style="margin:6px 0;">
-        <div style="color:#aaccff;">🌙 밤 BGM</div>
-        <input type="file" accept="audio/*" id="bgmNight"
-               onchange="AudioMgr.loadFromFile('night', this.files[0]);
-                         document.getElementById('bgmNightName').textContent = this.files[0]?.name || '';"
-               style="font-size:10px; width:100%;">
-        <div id="bgmNightName" style="color:#888; font-size:10px;"></div>
-      </div>
-      <div style="margin:6px 0;">
-        <div style="color:#ff8888;">⚔ 전쟁 BGM</div>
-        <input type="file" accept="audio/*" id="bgmRaid"
-               onchange="AudioMgr.loadFromFile('raid', this.files[0]);
-                         document.getElementById('bgmRaidName').textContent = this.files[0]?.name || '';"
-               style="font-size:10px; width:100%;">
-        <div id="bgmRaidName" style="color:#888; font-size:10px;"></div>
-      </div>
-      <div style="color:#aaa; font-size:10px; margin-top:6px;">
-        파일을 선택하면 즉시 적용. M키로 음소거.
-      </div>
-    </div>
+       padding:6px 10px; border:1px solid #ffe066; border-radius:8px;
+       display:flex; align-items:center; gap:8px;">
+    <span style="color:#ffe066; font-weight:bold;">🎵</span>
+    <input type="range" min="0" max="100" value="35"
+           oninput="AudioMgr.setVolume(this.value/100)" style="width:110px;">
+    <button onclick="AudioMgr.toggleMute();
+                     this.textContent = AudioMgr.muted ? '🔇' : '🔊';"
+            style="background:none; border:none; color:#fff; font-size:14px; cursor:pointer;">🔊</button>
   </div>
 
   <!-- Load order matters: dependencies first -->
