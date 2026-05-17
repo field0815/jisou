@@ -132,21 +132,26 @@ class House {
     return this.hp <= 0;
   }
 
-  draw(ctx, camera) {
-    if (!camera.isVisible(this.cx, this.cy, 120)) return;
-    const { x, y, w, h, hp, maxHp, comfort } = this;
-
-    // ── 운치굴 ─────────────────────────────────────
+  // 운치굴만 그리기 (배경 바로 위, 다른 모든 객체 아래에서 호출)
+  drawUnci(ctx, camera) {
+    if (!camera.isVisible(this.unciX, this.unciY, 80)) return;
     const unciFill = Math.min(1, this.unciAmount / 60);
-    ctx.save();
-    ctx.globalAlpha = 0.3 + unciFill * 0.4;
-    ctx.fillStyle = `hsl(${30 - unciFill * 20}, 60%, ${40 - unciFill * 15}%)`;
-    ctx.beginPath();
-    ctx.arc(this.unciX, this.unciY, CONFIG.UNCI_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.restore();
-
+    const pooImg   = Images.getPooCave && Images.getPooCave();
+    if (pooImg) {
+      const r = CONFIG.UNCI_RADIUS * 1.6;
+      ctx.save();
+      ctx.globalAlpha = 0.6 + unciFill * 0.4;
+      ctx.drawImage(pooImg, this.unciX - r, this.unciY - r, r * 2, r * 2);
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.globalAlpha = 0.3 + unciFill * 0.4;
+      ctx.fillStyle = `hsl(${30 - unciFill * 20}, 60%, ${40 - unciFill * 15}%)`;
+      ctx.beginPath();
+      ctx.arc(this.unciX, this.unciY, CONFIG.UNCI_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.save();
     ctx.font = '9px sans-serif';
     ctx.fillStyle = '#6b3e0a';
@@ -157,6 +162,11 @@ class House {
       ctx.fillText(`💩${Math.floor(this.unciAmount)}`, this.unciX, this.unciY + 14);
     }
     ctx.restore();
+  }
+
+  draw(ctx, camera) {
+    if (!camera.isVisible(this.cx, this.cy, 120)) return;
+    const { x, y, w, h, hp, maxHp, comfort } = this;
 
     // ── 집 그림자 ─────────────────────────────────
     ctx.fillStyle = 'rgba(0,0,0,0.18)';

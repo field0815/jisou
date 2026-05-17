@@ -753,9 +753,10 @@ class Siljangsuk {
       }
     }
 
-    // ── 하루 1회 물 마시기 (모든 단계, 아침/낮에만) ─────
+    // ── 하루 1회 물 마시기 (독라/1단계 새끼 제외, 아침/낮에만) ─
     if (!game.isNight && this.lastWaterDayKey !== game.dayIndex
-        && this.satiationFreezeTimer <= 0) {
+        && this.satiationFreezeTimer <= 0
+        && !this.slaveOf && this.stage !== 1) {
       const w = game.world?.findNearestWater
         ? game.world.findNearestWater(this.x, this.y) : null;
       if (w) {
@@ -792,7 +793,7 @@ class Siljangsuk {
         const d = Utils.distance(this, { x: h.cx, y: h.cy });
         if (d > 35) {
           this._setState('going_home');
-          this._setTarget(h.cx, h.cy);
+          this._setTarget(h.cx, h.cy, true);
           return;
         }
       }
@@ -811,7 +812,7 @@ class Siljangsuk {
         if (!disadvantaged) {
           // 반격
           this._setState('attacking');
-          this._setTarget(atk.x, atk.y);
+          this._setTarget(atk.x, atk.y, true);
           if (Utils.distance(this, atk) < 30 && this.attackCooldown <= 0) {
             const dmg = 2 + this.stage * 2;
             atk.hp = Math.max(0, (atk.hp ?? 0) - dmg);
@@ -908,8 +909,9 @@ class Siljangsuk {
 
         // 2-a'. 개념: 먼 거리 먹이 적극 탐색 (운치보다 먼저)
         if (pCon) {
-          const food = game.findNearestItem(this.x, this.y, 1500, i => i.isFood());
+          const food = game.findNearestItem(this.x, this.y, 1500, i => i.isFood(), this);
           if (food) {
+            this._claimItem(food);
             this._setState('seeking_food');
             this._setTarget(food.x, food.y);
             if (Utils.distance(this, food) < 14) this._pickUp(food, game);
@@ -1092,8 +1094,9 @@ class Siljangsuk {
 
     // Collect 1 item near home
     if (this.carriedItems.length < this.maxCarry) {
-      const item = game.findNearestItem(this.x, this.y, 90);
+      const item = game.findNearestItem(this.x, this.y, 90, null, this);
       if (item && !this._hasCloserCompetitor(item, game)) {
+        this._claimItem(item);
         this._setState('seeking_item');
         this._setTarget(item.x, item.y);
         if (Utils.distance(this, item) < 14) this._pickUp(item, game);
@@ -1177,8 +1180,9 @@ class Siljangsuk {
     }
 
     if (this.carriedItems.length < this.maxCarry) {
-      const item = game.findNearestItem(this.x, this.y, 130);
+      const item = game.findNearestItem(this.x, this.y, 130, null, this);
       if (item && !this._hasCloserCompetitor(item, game)) {
+        this._claimItem(item);
         this._setState('seeking_item');
         this._setTarget(item.x, item.y);
         if (Utils.distance(this, item) < 14) this._pickUp(item, game);
@@ -1362,8 +1366,9 @@ class Siljangsuk {
           // 계속 일반 음식 탐색도 시도
         }
       }
-      const food = game.findNearestItem(this.x, this.y, 800, i => i.isFood());
+      const food = game.findNearestItem(this.x, this.y, 800, i => i.isFood(), this);
       if (food) {
+        this._claimItem(food);
         this._setState('seeking_food');
         this._setTarget(food.x, food.y);
         if (this._foodSpeechCD <= 0) {
@@ -1385,8 +1390,9 @@ class Siljangsuk {
 
     // Collect paper if no house
     if (!h && this.paperCount < CONFIG.HOUSE_BUILD_COST && this.carriedItems.length < this.maxCarry) {
-      const paper = game.findNearestItem(this.x, this.y, 700, i => i.isPaper());
+      const paper = game.findNearestItem(this.x, this.y, 700, i => i.isPaper(), this);
       if (paper) {
+        this._claimItem(paper);
         this._setState('seeking_item');
         this._setTarget(paper.x, paper.y);
         if (Utils.distance(this, paper) < 14) this._pickUp(paper, game);
@@ -1396,8 +1402,9 @@ class Siljangsuk {
 
     // Collect any item
     if (this.carriedItems.length < this.maxCarry) {
-      const item = game.findNearestItem(this.x, this.y, 450);
+      const item = game.findNearestItem(this.x, this.y, 450, null, this);
       if (item && !this._hasCloserCompetitor(item, game)) {
+        this._claimItem(item);
         this._setState('seeking_item');
         this._setTarget(item.x, item.y);
         if (Utils.distance(this, item) < 14) this._pickUp(item, game);
@@ -1551,15 +1558,30 @@ class Siljangsuk {
 
   _pickUp(item, game) {
     if (item.collected) return;
+    // 다른 실장석이 노리던 음식을 가로채면 관계 -1
+    if (item.claimedBy && item.claimedBy !== this.id) {
+      const claimer = game.getEntity(item.claimedBy);
+      if (claimer && !claimer.dead && claimer.addRelation) {
+        claimer.addRelation(this.id, -1);
+        game.addParticle(claimer.x, claimer.y - 18, '내 거였는데…', '#ffaa44', 1500);
+      }
+    }
     item.collected  = true;
     item.carriedBy  = this.id;
+    item.claimedBy  = null;
     this.carriedItems.push(item);
     if (item.isPaper()) this.paperCount++;
-    // 학습: 음식 발견 위치 기록
     if (item.isFood && item.isFood()) {
       this._memory.foodZones.push({ x: this.x, y: this.y, t: Date.now() });
       if (this._memory.foodZones.length > 5) this._memory.foodZones.shift();
     }
+  }
+
+  // 음식 타겟 잡으면서 claim
+  _claimItem(item) {
+    if (!item) return;
+    item.claimedBy  = this.id;
+    item._claimTime = Date.now();
   }
 
   _depositAll(game) {
@@ -1729,7 +1751,8 @@ class Siljangsuk {
     const n  = Utils.normalize(dx, dy);
     this._setTarget(
       Utils.clamp(this.x + n.x * 250, 20, CONFIG.WORLD_WIDTH  - 20),
-      Utils.clamp(this.y + n.y * 250, 20, CONFIG.WORLD_HEIGHT - 20)
+      Utils.clamp(this.y + n.y * 250, 20, CONFIG.WORLD_HEIGHT - 20),
+      true   // force
     );
     this.fleeing   = true;
     this.fleeTimer = 3;
@@ -1746,13 +1769,13 @@ class Siljangsuk {
     const h = this.house;
     if (bestBush && (!h || bushD < Utils.distance(this, { x: h.cx, y: h.cy }))) {
       this._setState('fleeing');
-      this._setTarget(bestBush.x, bestBush.y);
+      this._setTarget(bestBush.x, bestBush.y, true);
       this.fleeing = true; this.fleeTimer = 4;
       return;
     }
     if (h) {
       this._setState('fleeing');
-      this._setTarget(h.cx, h.cy);
+      this._setTarget(h.cx, h.cy, true);
       this.fleeing   = true;
       this.fleeTimer = 4;
     } else {
@@ -1760,15 +1783,23 @@ class Siljangsuk {
     }
   }
 
-  _setTarget(x, y) {
-    // 빙빙 도는 현상 방지: 직전 타겟과 너무 가까운 위치로 자주 바꾸지 않음
-    if (this.targetX !== undefined) {
+  _setTarget(x, y, force = false) {
+    const now = performance.now();
+    if (!force && this.targetX !== undefined) {
+      // 현재 타겟에 이미 도달했으면 락 해제 — 새 목표 즉시 수락
+      const distToCurrent = Math.hypot(this.x - this.targetX, this.y - this.targetY);
+      if (distToCurrent < 25) {
+        this.targetX = x; this.targetY = y;
+        this._lastTargetT = now;
+        return;
+      }
+      // 아직 도달 못 했고 5초 안 + 새 타겟이 멀리 다른 방향 → 유지 (현재 목표 추격 우선)
       const d = Math.hypot(x - this.targetX, y - this.targetY);
-      const since = (performance.now() - (this._lastTargetT ?? 0)) / 1000;
-      if (d < 25 && since < 0.6) return;
+      const since = (now - (this._lastTargetT ?? 0)) / 1000;
+      if (since < 5 && d > 60) return;
     }
     this.targetX = x; this.targetY = y;
-    this._lastTargetT = performance.now();
+    this._lastTargetT = now;
   }
   _setState(s)      { if (this.state !== s) { this.state = s; this.stateTimer = 0; } }
 

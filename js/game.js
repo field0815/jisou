@@ -342,6 +342,11 @@ const Game = {
 
     this.world.draw(ctx, camera);
 
+    // 운치굴은 타일셋(배경) 바로 위, 다른 모든 객체보다 아래에 그림
+    for (const h of this.houses) {
+      if (h.drawUnci) h.drawUnci(ctx, camera);
+    }
+
     // Y-sort: 화면상 더 아래(y가 큰) 쪽이 위에 그려짐
     const drawables = [];
     for (const h  of this.houses)         drawables.push({ y: h.y + h.h, e: h  });
@@ -658,11 +663,21 @@ const Game = {
     this.logEvent('🏚️ 집이 파괴되었다', '#ff6666');
   },
 
-  findNearestItem(x, y, maxDist, filter = null, requesterId = null) {
+  findNearestItem(x, y, maxDist, filter = null, requester = null) {
     let best = null, bestD = maxDist;
+    const now = Date.now();
+    const reqId  = (typeof requester === 'object' && requester) ? requester.id : requester;
+    const reqFam = (typeof requester === 'object' && requester) ? requester.familyId : null;
     for (const item of this.items) {
       if (item.collected) continue;
-      if (item.claimedBy && item.claimedBy !== requesterId) continue;
+      // 최근(10초) 다른 실장석이 claim 한 경우: 같은 가족이면 제외
+      if (item.claimedBy && item.claimedBy !== reqId
+          && item._claimTime && (now - item._claimTime) < 10000) {
+        if (reqFam !== null) {
+          const claimer = this.entities.get(item.claimedBy);
+          if (claimer && claimer.familyId === reqFam) continue;
+        }
+      }
       if (filter && !filter(item)) continue;
       const d = Utils.distance({ x, y }, item);
       if (d < bestD) { best = item; bestD = d; }

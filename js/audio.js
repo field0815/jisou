@@ -12,9 +12,9 @@ const AudioMgr = {
 
   load() {
     const list = {
-      day:   'audio/bgm_day.mp3',
-      night: 'audio/bgm_night.mp3',
-      raid:  'audio/bgm_raid.mp3',
+      day:   'bgm/bgm_day.mp3',
+      night: 'bgm/bgm_night.mp3',
+      raid:  'bgm/bgm_raid.mp3',
     };
     for (const [key, src] of Object.entries(list)) {
       const a = new Audio();

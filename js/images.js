@@ -23,9 +23,15 @@ const Images = {
     hImg.onload  = () => { this._imgs.house = hImg; };
     hImg.onerror = () => {};
     hImg.src = 'images/house.png';
+    // 운치굴
+    const pImg = new Image();
+    pImg.onload  = () => { this._imgs.poo_cave = pImg; };
+    pImg.onerror = () => {};
+    pImg.src = 'images/poo_cave.png';
   },
 
-  getHouse() { return this._imgs.house ?? null; },
+  getHouse()   { return this._imgs.house    ?? null; },
+  getPooCave() { return this._imgs.poo_cave ?? null; },
 
   // 해당 단계 이미지가 로드됐으면 반환, 아니면 null
   get(stage) {
