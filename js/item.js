@@ -48,6 +48,15 @@ class Item {
     ctx.save();
     ctx.translate(this.x, this.y);
     this._drawShape(ctx);
+    // 그룹 숫자 표시 (같은 타입 64px 이내 묶음)
+    if (this.groupCount && this.groupCount > 1) {
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(3, -20, ctx.measureText(`\xd7${Math.min(this.groupCount, 10)}`).width + 4, 14);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`\xd7${Math.min(this.groupCount, 10)}`, 8, -9);
+    }
     ctx.restore();
   }
 

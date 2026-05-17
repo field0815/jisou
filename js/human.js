@@ -89,8 +89,25 @@ class Human {
 
   _behaviorAttacker(dt, game) {
     // 학대파: 성체 위주로 공격, 집도 파괴, 반격 불가(반격 무효 처리)
-    let target = game.findNearestSiljangsuk(this.x, this.y, 1200, s => !s.dead && !s.hidden && s.stage === 4);
-    if (!target) target = game.findNearestSiljangsuk(this.x, this.y, 800, s => !s.dead && !s.hidden);
+    // 다른 학대파가 이미 노리는 실장석 ID 수집
+    const takenTargetIds = new Set();
+    for (const h of (game.humans || [])) {
+      if (h !== this && h.type === 2 && h._currentTargetId) {
+        takenTargetIds.add(h._currentTargetId);
+      }
+    }
+
+    let target = game.findNearestSiljangsuk(this.x, this.y, 1200,
+      s => !s.dead && !s.hidden && s.stage === 4 && !takenTargetIds.has(s.id));
+    if (!target) target = game.findNearestSiljangsuk(this.x, this.y, 1200,
+      s => !s.dead && !s.hidden && s.stage === 4);
+    if (!target) target = game.findNearestSiljangsuk(this.x, this.y, 800,
+      s => !s.dead && !s.hidden && !takenTargetIds.has(s.id));
+    if (!target) target = game.findNearestSiljangsuk(this.x, this.y, 800,
+      s => !s.dead && !s.hidden);
+
+    this._currentTargetId = target ? target.id : null;
+
     if (target) {
       this.targetX = target.x;
       this.targetY = target.y;

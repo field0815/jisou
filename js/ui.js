@@ -2,6 +2,7 @@
 class UI {
   constructor() {
     this.selectedMenu = -1;
+    this.selectedCategory = -1;  // 선택된 상위 메뉴
     this.selectedEntity = null;
     this.announcements = [];
     this.showHelp = false;
@@ -41,6 +42,7 @@ class UI {
     this._drawEventLog(ctx, canvas, game);
     this._drawTribePanel(ctx, canvas, game);
     this._drawHelp(ctx, canvas);
+    this._drawAddSpeechBtn(ctx, canvas);
     for (const a of this.announcements) a.draw(ctx, canvas);
   }
 
@@ -199,70 +201,85 @@ class UI {
 
   // ── Bottom menu bar ─────────────────────────────────────
   _drawBottomBar(ctx, canvas, game) {
-    const alive  = game.siljangsukList.filter(s => !s.dead).length;
-    const items  = MENU_ITEMS.filter(m => alive >= m.unlock || game.cheatUnlockAll);
-    const iw = 68, ih = 68, gap = 6;
+    const alive = game.siljangsukList.filter(s => !s.dead).length;
+    const catW = 100, catH = 36, catGap = 6;
+    const totalCatW = MENU_CATEGORIES.length * (catW + catGap) - catGap;
+    const startX = canvas.width / 2 - totalCatW / 2;
+    const catY = canvas.height - catH - 10;
 
-    // "없음" 버튼 포함해서 전체 너비 계산
-    const noneW = 52;
-    const totalW = noneW + gap + items.length * (iw + gap) - gap;
-    const startX = canvas.width / 2 - totalW / 2;
-    const baseY  = canvas.height - ih - 16;
-
-    // Background
-    ctx.fillStyle = 'rgba(20,15,10,0.75)';
-    Utils.roundRect(ctx, startX - 12, baseY - 10, totalW + 24, ih + 20, 12);
+    // 상위 메뉴 배경
+    ctx.fillStyle = 'rgba(20,15,10,0.8)';
+    Utils.roundRect(ctx, startX - 10, catY - 6, totalCatW + 20, catH + 12, 8);
     ctx.fill();
 
-    // "없음" 버튼
-    const noneSelected = this.selectedMenu === -1;
-    ctx.fillStyle = noneSelected ? 'rgba(180,100,100,0.4)' : 'rgba(255,255,255,0.06)';
-    ctx.strokeStyle = noneSelected ? '#ff8888' : 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = noneSelected ? 2 : 1;
-    Utils.roundRect(ctx, startX, baseY + (ih - 52) / 2, noneW, 52, 7);
-    ctx.fill(); ctx.stroke();
-    ctx.font = '20px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('✕', startX + noneW / 2, baseY + (ih - 52) / 2 + 30);
-    ctx.fillStyle = '#bbb';
-    ctx.font = '10px sans-serif';
-    ctx.fillText('없음', startX + noneW / 2, baseY + (ih - 52) / 2 + 48);
+    this._catBtnAreas = [];
+    MENU_CATEGORIES.forEach((cat, ci) => {
+      const bx = startX + ci * (catW + catGap);
+      const sel = this.selectedCategory === ci;
+      ctx.fillStyle = sel ? 'rgba(255,220,80,0.35)' : 'rgba(255,255,255,0.08)';
+      ctx.strokeStyle = sel ? '#ffe066' : 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = sel ? 2 : 1;
+      Utils.roundRect(ctx, bx, catY, catW, catH, 6);
+      ctx.fill(); ctx.stroke();
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(cat.icon, bx + 18, catY + catH * 0.65);
+      ctx.font = 'bold 10px "Noto Sans KR", sans-serif';
+      ctx.fillStyle = '#ddd';
+      ctx.fillText(cat.label, bx + catW / 2 + 4, catY + catH - 6);
+      this._catBtnAreas.push({ x: bx, y: catY, w: catW, h: catH, catIdx: ci });
+    });
 
-    const itemsStartX = startX + noneW + gap;
+    // 선택된 카테고리의 하위 메뉴
+    if (this.selectedCategory < 0) {
+      this._menuItemsStartX = undefined;
+      this._menuNoneBtn = null;
+      return;
+    }
+    const cat = MENU_CATEGORIES[this.selectedCategory];
+    const items = cat.items.filter(m => alive >= m.unlock || game.cheatUnlockAll);
+    const iw = 64, ih = 64, gap = 5;
+    const totalItemW = items.length * (iw + gap) - gap;
+    const itemStartX = canvas.width / 2 - totalItemW / 2;
+    const itemBaseY = catY - ih - 12;
+
+    ctx.fillStyle = 'rgba(20,15,10,0.75)';
+    Utils.roundRect(ctx, itemStartX - 8, itemBaseY - 6, totalItemW + 16, ih + 12, 8);
+    ctx.fill();
 
     items.forEach((item, i) => {
-      const x = itemsStartX + i * (iw + gap);
-      const y = baseY;
+      const x = itemStartX + i * (iw + gap);
+      const y = itemBaseY;
       const sel = this.selectedMenu === i;
-
       ctx.fillStyle = sel ? 'rgba(255,220,80,0.3)' : 'rgba(255,255,255,0.08)';
       ctx.strokeStyle = sel ? '#ffe066' : 'rgba(255,255,255,0.2)';
       ctx.lineWidth = sel ? 2.5 : 1;
       Utils.roundRect(ctx, x, y, iw, ih, 8);
       ctx.fill(); ctx.stroke();
-
       ctx.font = `${iw * 0.42}px sans-serif`;
       ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff';
       ctx.fillText(item.icon, x + iw / 2, y + ih * 0.54);
-
       ctx.fillStyle = '#ddd';
-      ctx.font = '10px "Noto Sans KR", sans-serif';
-      ctx.fillText(item.label, x + iw / 2, y + ih - 8);
-
+      ctx.font = '9px "Noto Sans KR", sans-serif';
+      ctx.fillText(item.label, x + iw / 2, y + ih - 7);
+      // 숫자 단축키
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.font = 'bold 10px sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText(`${i + 1}`, x + 4, y + 13);
     });
 
-    // 버튼 영역 저장 (클릭 처리용)
-    this._menuNoneBtn = { x: startX, y: baseY + (ih - 52) / 2, w: noneW, h: 52 };
-    this._menuItemsStartX = itemsStartX;
+    // 버튼 영역 저장 (기존 코드 호환용)
+    this._menuNoneBtn = null;
+    this._menuItemsStartX = itemStartX;
     this._menuItemW = iw;
     this._menuItemH = ih;
     this._menuItemGap = gap;
-    this._menuBaseY = baseY;
+    this._menuBaseY = itemBaseY;
     this._menuItemCount = items.length;
+    this._menuCurrentItems = items;
   }
 
   // ── 조직 패널 (왼쪽 위, T 키 토글) ──────────────────────
@@ -394,6 +411,21 @@ class UI {
       ctx.textAlign = 'center';
       ctx.fillText('✏️ 이름', rbX + rbW / 2, rbY + 14);
       this._renameBtn = { x: rbX, y: rbY, w: rbW, h: rbH, target: ent };
+
+      // ── 카메라 추적 버튼 (이름변경 버튼 왼쪽) ───────────────────
+      const camBtnW = 26, camBtnH = 20;
+      const camBtnX = px + pw - 56 - 10 - camBtnW - 4, camBtnY = py + 8;
+      const isTracking = (game.camera.followEntity === ent);
+      ctx.fillStyle   = isTracking ? 'rgba(80,200,80,0.4)' : 'rgba(60,80,180,0.25)';
+      ctx.strokeStyle = isTracking ? '#88ff88' : '#8899ff';
+      ctx.lineWidth   = 1;
+      Utils.roundRect(ctx, camBtnX, camBtnY, camBtnW, camBtnH, 5);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = isTracking ? '#aaffaa' : '#aabbff';
+      ctx.font      = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('📷', camBtnX + camBtnW / 2, camBtnY + 15);
+      this._camTrackBtn = { x: camBtnX, y: camBtnY, w: camBtnW, h: camBtnH, target: ent };
 
       const lines = [
         ['번호',  `#${ent.serialNo ?? '?'}`],
@@ -693,25 +725,81 @@ class UI {
     }
     return false;
   }
+
+  handleCamTrackClick(screenX, screenY, game) {
+    if (!this._camTrackBtn) return false;
+    const b = this._camTrackBtn;
+    if (screenX >= b.x && screenX <= b.x + b.w &&
+        screenY >= b.y && screenY <= b.y + b.h) {
+      const target = b.target;
+      if (target && !target.dead) {
+        if (game.camera.followEntity === target) {
+          game.camera.followEntity = null; // 토글
+          game.addParticle(target.x, target.y - 20, '추적 해제', '#aaaaaa', 1200);
+        } else {
+          game.camera.followEntity = target;
+          game.addParticle(target.x, target.y - 20, '📷 추적 중', '#88ff88', 1500);
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  _drawAddSpeechBtn(ctx, canvas) {
+    const bw = 80, bh = 28;
+    const bx = canvas.width - bw - 10, by = 82;
+    ctx.fillStyle = 'rgba(80,60,120,0.7)';
+    ctx.strokeStyle = '#aa88ff';
+    ctx.lineWidth = 1;
+    Utils.roundRect(ctx, bx, by, bw, bh, 6);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ddbbff';
+    ctx.font = 'bold 11px "Noto Sans KR", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('💬 대사추가', bx + bw / 2, by + 18);
+    this._addSpeechBtn = { x: bx, y: by, w: bw, h: bh };
+  }
 }
 
 // ── Menu item definitions ────────────────────────────────
-const MENU_ITEMS = [
-  { label: '음식물',   icon: '🍱', type: 'food',     unlock: 0 },
-  { label: '폐지',     icon: '📄', type: 'paper',    unlock: 0 },
-  { label: '낙엽',     icon: '🍂', type: 'leaf',     unlock: 0 },
-  { label: '꽃가루',   icon: '🌸', type: 'pollen',   unlock: 0 },              // 1단계부터 가능
-  { label: '콘페이토', icon: '🍬', type: 'confetto', unlock: CONFIG.MENU_TIER1 },
-  { label: '대못',     icon: '🔩', type: 'nail',     unlock: CONFIG.MENU_TIER2 },
-  { label: '방수포',   icon: '🏕️', type: 'tarp',     unlock: CONFIG.MENU_TIER2 },
-  { label: '도돈파',   icon: '💜', type: 'dodonpa',  unlock: CONFIG.MENU_TIER1 },
-  { label: '코로리',   icon: '💀', type: 'korori',   unlock: CONFIG.MENU_TIER2 },
-  { label: '쓰레기통', icon: '🗑️', type: 'trashcan', unlock: 0 },
-  { label: '수돗가',   icon: '🚰', type: 'tap',      unlock: 0 },
-  { label: '애호파 인간', icon: '🧑', type: 'human_1', unlock: 0 },
-  { label: '학대파 인간', icon: '👊', type: 'human_2', unlock: 0 },
-  { label: '고양이',      icon: '🐱', type: 'cat',     unlock: 0 },
-  { label: '일반인',      icon: '🚶', type: 'human_4', unlock: 0 },
-  { label: '제거',        icon: '❌', type: 'remove',  unlock: 0 },
-  { label: '대사 추가',   icon: '💬', type: 'add_speech', unlock: 0 },
+const MENU_CATEGORIES = [
+  {
+    label: '아이템 생성',
+    icon: '📦',
+    items: [
+      { label: '음식물',   icon: '🍱', type: 'food',     unlock: 0 },
+      { label: '폐지',     icon: '📄', type: 'paper',    unlock: 0 },
+      { label: '낙엽',     icon: '🍂', type: 'leaf',     unlock: 0 },
+      { label: '꽃가루',   icon: '🌸', type: 'pollen',   unlock: 0 },
+      { label: '콘페이토', icon: '🍬', type: 'confetto', unlock: CONFIG.MENU_TIER1 },
+      { label: '코로리',   icon: '💀', type: 'korori',   unlock: CONFIG.MENU_TIER2 },
+      { label: '도돈파',   icon: '💜', type: 'dodonpa',  unlock: CONFIG.MENU_TIER1 },
+      { label: '방수포',   icon: '🏕️', type: 'tarp',     unlock: CONFIG.MENU_TIER2 },
+      { label: '대못',     icon: '🔩', type: 'nail',     unlock: CONFIG.MENU_TIER2 },
+    ]
+  },
+  {
+    label: '맵 오브젝트',
+    icon: '🗺️',
+    items: [
+      { label: '쓰레기통', icon: '🗑️', type: 'trashcan', unlock: 0 },
+      { label: '수돗가',   icon: '🚰', type: 'tap',      unlock: 0 },
+      { label: '애호파',   icon: '🧑', type: 'human_1',  unlock: 0 },
+      { label: '학대파',   icon: '👊', type: 'human_2',  unlock: 0 },
+      { label: '일반인',   icon: '🚶', type: 'human_4',  unlock: 0 },
+      { label: '고양이',   icon: '🐱', type: 'cat',      unlock: 0 },
+    ]
+  },
+  {
+    label: '관리자 도구',
+    icon: '⚙️',
+    items: [
+      { label: '제거',       icon: '❌', type: 'remove',      unlock: 0 },
+      { label: '실장역병',   icon: '🦠', type: 'plague',      unlock: 0 },
+      { label: '화염방사기', icon: '🔥', type: 'flamethrower', unlock: 0 },
+    ]
+  },
 ];
+// 하위호환용 평탄 목록 (기존 코드가 MENU_ITEMS 쓰는 곳을 위해)
+const MENU_ITEMS = MENU_CATEGORIES.flatMap(c => c.items);

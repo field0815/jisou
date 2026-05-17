@@ -230,6 +230,14 @@ const Game = {
   _update(dt) {
     this.camera.update(dt, this._keys);
 
+    // 카메라 추적 모드
+    if (this.camera.followEntity) {
+      const fe = this.camera.followEntity;
+      if (fe.dead || fe.done) {
+        this.camera.followEntity = null;
+      }
+    }
+
     // ── Day phase 계산 ────────────────────────────
     this.dayTime += dt;
     const cycle = CONFIG.DAY_LENGTH + CONFIG.NIGHT_LENGTH;
@@ -307,6 +315,114 @@ const Game = {
     }
     this._checkRaidEnd();
 
+    // 역병 업데이트
+    for (const s of this.siljangsukList) {
+      if (s.dead || !s._plagueInfected) continue;
+      s._plagueTimer -= dt;
+      if (s._plagueTimer > 0) continue;
+      // 감염 진행
+      s._plagueStage = Math.min(1, (s._plagueStage ?? 0) + dt / 30);
+      // 주변 실장석에게 전파
+      if (Math.random() < 0.02) {
+        const near = this.findNearestSiljangsuk(s.x, s.y, 80, t =>
+          !t.dead && !t._plagueInfected && t.id !== s.id);
+        if (near) {
+          near._plagueInfected = true;
+          near._plagueTimer = 0;
+          near._plagueStage = 0;
+          this.logEvent(`🦠 ${near.label} 역병 전파됨`, '#44aa44', { x: near.x, y: near.y });
+        }
+      }
+      // 감염 완료 후 HP 감소
+      if (s._plagueStage >= 1) {
+        s._plagueDeathTimer = (s._plagueDeathTimer ?? 0) + dt;
+        if (s._plagueDeathTimer >= (CONFIG.DAY_LENGTH + CONFIG.NIGHT_LENGTH)) {
+          s.hp = Math.max(0, s.hp - 3 * dt);
+        }
+      }
+    }
+
+    // 화염 업데이트
+    if (this._flames) {
+      for (const f of this._flames) {
+        f.life -= dt;
+        if (f.spread && Math.random() < 0.15) {
+          const nx = f.x + Utils.random(-40, 40);
+          const ny = f.y + Utils.random(-40, 40);
+          if (f.life > 1) this._flames.push({ x: nx, y: ny, r: 40, life: 2.0, spread: false });
+        }
+        // 불에 닿은 실장석
+        for (const s of this.siljangsukList) {
+          if (s.dead || s._onFire) continue;
+          if (Utils.distance(s, f) < f.r) {
+            s._onFire = true;
+            s._fireTimer = 8;
+            this.addParticle(s.x, s.y - 10, '🔥', '#ff6600', 1000);
+          }
+        }
+        // 불에 닿은 집
+        for (const h of this.houses) {
+          if (h._onFire) continue;
+          if (Utils.distance({ x: h.cx, y: h.cy }, f) < f.r + 40) {
+            h._onFire = true;
+            h._fireTimer = 15;
+          }
+        }
+      }
+      this._flames = this._flames.filter(f => f.life > 0);
+
+      // 불타는 실장석 처리 — 죽을 때까지 안 꺼짐, 지속 파티클 생성
+      for (const s of this.siljangsukList) {
+        if (!s._onFire || s.dead) continue;
+        s.hp = Math.max(0, s.hp - 15 * dt);
+        if (!s._fireFleeSet) {
+          s._fireFleeSet = true;
+          const ang = Math.random() * Math.PI * 2;
+          s.targetX = Utils.clamp(s.x + Math.cos(ang) * 300, 0, CONFIG.WORLD_WIDTH);
+          s.targetY = Utils.clamp(s.y + Math.sin(ang) * 300, 0, CONFIG.WORLD_HEIGHT);
+          s.fleeing = true; s.fleeTimer = 999;
+        }
+        // 지속 불꽃 파티클
+        s._fireParticleCD = (s._fireParticleCD ?? 0) - dt;
+        if (s._fireParticleCD <= 0) {
+          s._fireParticleCD = 0.12;
+          this.addParticle(
+            s.x + Utils.random(-8, 8),
+            s.y - 10 + Utils.random(-6, 6),
+            '🔥', '#ff6600', 500);
+        }
+      }
+      // 불타는 집 — 지속 파티클
+      for (const h of this.houses) {
+        if (!h._onFire) continue;
+        h._fireTimer -= dt;
+        h.hp = Math.max(0, h.hp - 5 * dt);
+        h._fireParticleCD = (h._fireParticleCD ?? 0) - dt;
+        if (h._fireParticleCD <= 0) {
+          h._fireParticleCD = 0.15;
+          this.addParticle(
+            h.cx + Utils.random(-20, 20),
+            h.cy + Utils.random(-15, 15),
+            '🔥', '#ff6600', 600);
+        }
+        if (h._fireTimer <= 0 || h.hp <= 0) {
+          h._onFire = false;
+          if (h.hp <= 0) this.destroyHouse(h);
+        }
+      }
+      // 화염 자체의 지속 파티클
+      for (const f of this._flames) {
+        f._particleCD = (f._particleCD ?? 0) - dt;
+        if (f._particleCD <= 0) {
+          f._particleCD = 0.1;
+          this.addParticle(
+            f.x + Utils.random(-f.r*0.5, f.r*0.5),
+            f.y + Utils.random(-f.r*0.5, f.r*0.5),
+            '🔥', '#ff8800', 500);
+        }
+      }
+    }
+
     this.ui.update(dt);
 
     // 정리
@@ -381,6 +497,19 @@ const Game = {
       return true;
     });
     if (rotted > 0) this.logEvent(`🍂 오래된 음식 ${rotted}개 부패`, '#888888');
+
+    // 폐지, 낙엽도 3일 후 소멸
+    let decayed = 0;
+    this.items = this.items.filter(it => {
+      if (it.collected) return true;
+      if ((it.type === 'paper' || it.type === 'leaf') && (d - (it.spawnDayIndex ?? 0)) >= 3) {
+        this.entities.delete(it.id);
+        decayed++;
+        return false;
+      }
+      return true;
+    });
+    if (decayed > 0) this.logEvent(`📄 오래된 폐지/낙엽 ${decayed}개 소멸`, '#888888');
 
     // 모든 집 HP 자동 소모 (빈집은 더 빨리)
     for (const h of this.houses) {
@@ -507,11 +636,32 @@ const Game = {
       ctx.restore();
     }
 
+    // 아이템 그룹화 (64px 이내 같은 타입 합치기, 최대 10개)
+    for (const item of this.items) {
+      item._skipDraw = false;
+      item.groupCount = 1;
+    }
+    for (const item of this.items) {
+      if (item.collected || item._skipDraw) continue;
+      let count = 1;
+      for (const other of this.items) {
+        if (other === item || other.collected || other._skipDraw) continue;
+        if (other.type === item.type && Utils.distance(item, other) < 64) {
+          count++;
+          other._skipDraw = true;
+        }
+      }
+      item.groupCount = Math.min(count, 10);
+    }
+
     // Y-sort: 화면상 더 아래(y가 큰) 쪽이 위에 그려짐
     const drawables = [];
     for (const h  of this.houses)         drawables.push({ y: h.y + h.h, e: h  });
     for (const tc of this.trashCans)      drawables.push({ y: tc.y,      e: tc });
-    for (const it of this.items)          drawables.push({ y: it.y,      e: it });
+    for (const it of this.items) {
+      if (it._skipDraw) continue;
+      drawables.push({ y: it.y, e: it });
+    }
     for (const s  of this.siljangsukList) drawables.push({ y: s.y,       e: s  });
     for (const hu of this.humans)         drawables.push({ y: hu.y,      e: hu });
     drawables.sort((a, b) => a.y - b.y);
@@ -519,6 +669,38 @@ const Game = {
 
     for (const pc of this.pollenClouds) pc.draw(ctx, camera);
     for (const p of this.particles)    p.draw(ctx, camera);
+
+    // 화염 렌더링
+    if (this._flames) {
+      for (const f of this._flames) {
+        if (!camera.isVisible(f.x, f.y, f.r)) continue;
+        const alpha = Math.min(1, f.life) * 0.75;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+        grad.addColorStop(0,   'rgba(255,200,0,0.9)');
+        grad.addColorStop(0.5, 'rgba(255,80,0,0.7)');
+        grad.addColorStop(1,   'rgba(200,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // 역병 실장석 오버레이
+    for (const s of this.siljangsukList) {
+      if (!s._plagueInfected || s._plagueTimer > 0 || s.dead) continue;
+      const stage = s._plagueStage ?? 0;
+      ctx.save();
+      ctx.globalAlpha = 0.4 * stage;
+      ctx.fillStyle = `rgba(50,200,50,${0.7 * stage})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.size + 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     // 선택된 조직 영역 — 멤버 둘러싸는 반투명 마커 + 보스는 붉은 원
     const selTribe = this.ui.selectedTribeId;
@@ -957,6 +1139,14 @@ const Game = {
     }, { passive: false });
 
     window.addEventListener('mousemove', e => {
+      if (this._panDrag) {
+        const dx = e.clientX - this._panDrag.lastX;
+        const dy = e.clientY - this._panDrag.lastY;
+        this.camera._tx -= dx / this.camera._tz;
+        this.camera._ty -= dy / this.camera._tz;
+        this._panDrag.lastX = e.clientX;
+        this._panDrag.lastY = e.clientY;
+      }
       this._mouse.screenX = e.clientX;
       this._mouse.screenY = e.clientY;
       const w = this.camera.screenToWorld(e.clientX, e.clientY);
@@ -1000,6 +1190,12 @@ const Game = {
 
     // 마우스 다운: 실장석 위에서 드래그 시작
     window.addEventListener('mousedown', e => {
+      // 휠 버튼(중간 버튼) pan 시작
+      if (e.button === 1) {
+        e.preventDefault();
+        this._panDrag = { lastX: e.clientX, lastY: e.clientY };
+        return;
+      }
       if (e.button !== 0) return;
       // 상태창 헤더 드래그 시작
       if (this.ui._statHeaderArea && this.ui.selectedEntity) {
@@ -1069,6 +1265,10 @@ const Game = {
     });
 
     window.addEventListener('mouseup', e => {
+      if (e.button === 1) {
+        this._panDrag = null;
+        return;
+      }
       if (e.button !== 0) return;
       // 상태창 드래그 종료
       if (this.ui._statDrag) { this.ui._statDrag = null; return; }
@@ -1136,6 +1336,45 @@ const Game = {
       if (this.ui.handleTribePanelClick(sx, sy, this)) return;
       if (this.ui.handleRenameClick(sx, sy, this)) return;
       if (this.ui.handlePniepnieClick(sx, sy, this)) return;
+      if (this.ui.handleCamTrackClick && this.ui.handleCamTrackClick(sx, sy, this)) return;
+
+      // 상위 카테고리 버튼 클릭
+      if (this.ui._catBtnAreas) {
+        for (const btn of this.ui._catBtnAreas) {
+          if (sx >= btn.x && sx <= btn.x + btn.w && sy >= btn.y && sy <= btn.y + btn.h) {
+            if (this.ui.selectedCategory === btn.catIdx) {
+              this.ui.selectedCategory = -1; // 토글 닫기
+            } else {
+              this.ui.selectedCategory = btn.catIdx;
+            }
+            this.ui.selectedMenu = -1;
+            return;
+          }
+        }
+      }
+
+      // 대사 추가 버튼
+      if (this.ui._addSpeechBtn) {
+        const asb = this.ui._addSpeechBtn;
+        if (sx >= asb.x && sx <= asb.x + asb.w && sy >= asb.y && sy <= asb.y + asb.h) {
+          const stage = window.prompt('어느 단계 대사? (1/2/3/4)', '4');
+          if (!stage) return;
+          const cat = window.prompt('카테고리? (idle/food/sleep/hurt/unci/play/raid/birth/meal/evening/taegyo)', 'idle');
+          if (!cat) return;
+          const text = window.prompt('대사 내용:', '');
+          if (!text) return;
+          try {
+            const sNum = parseInt(stage);
+            if (SPEECHES[sNum] && SPEECHES[sNum][cat]) {
+              if (Array.isArray(SPEECHES[sNum][cat])) {
+                SPEECHES[sNum][cat].push(text.trim());
+              }
+              this.addParticle(this.canvas.width/2, this.canvas.height/2, '대사 추가됨!', '#aaffaa', 2000);
+            }
+          } catch(e) {}
+          return;
+        }
+      }
 
       if (this.ui._menuNoneBtn) {
         const nb = this.ui._menuNoneBtn;
@@ -1167,9 +1406,12 @@ const Game = {
 
       // 아이템 배치
       if (this.ui.selectedMenu >= 0) {
-        const alive2 = this.siljangsukList.filter(s => !s.dead).length;
-        const avail2 = MENU_ITEMS.filter(m => alive2 >= m.unlock || this.cheatUnlockAll);
-        const menuItem = avail2[this.ui.selectedMenu];
+        const menuItem = this.ui._menuCurrentItems
+          ? this.ui._menuCurrentItems[this.ui.selectedMenu]
+          : (() => {
+              const alive2 = this.siljangsukList.filter(s => !s.dead).length;
+              return MENU_ITEMS.filter(m => alive2 >= m.unlock || this.cheatUnlockAll)[this.ui.selectedMenu];
+            })();
         if (menuItem && menuItem.type !== 'none') {
           // 인간/고양이/일반인 스폰
           if (['human_1', 'human_2', 'cat', 'human_4'].includes(menuItem.type)) {
@@ -1178,6 +1420,25 @@ const Game = {
             h.x = wx; h.y = wy; h.targetX = wx; h.targetY = wy;
             this.humans.push(h);
             this.entities.set(h.id, h);
+            return;
+          }
+          // 역병 선택 후 실장석 클릭
+          if (menuItem.type === 'plague') {
+            const target = this.findNearestSiljangsuk(wx, wy, 40, s => !s.dead);
+            if (target) {
+              target._plagueTimer = 30; // 30초 후 감염 시작
+              target._plagueInfected = true;
+              target._plagueStage = 0;
+              this.addParticle(target.x, target.y - 20, '🦠 역병 감염!', '#44cc44', 2000);
+              this.logEvent(`🦠 ${target.label} 실장역병 감염`, '#44aa44', { x: target.x, y: target.y });
+            }
+            return;
+          }
+          // 화염방사기
+          if (menuItem.type === 'flamethrower') {
+            if (!this._flames) this._flames = [];
+            this._flames.push({ x: wx, y: wy, r: 60, life: 3.0, spread: true });
+            this.addParticle(wx, wy - 10, '🔥', '#ff6600', 1000);
             return;
           }
           // 대사 추가: prompt로 입력 받아 단계/카테고리 풀에 추가

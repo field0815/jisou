@@ -60,35 +60,41 @@ class World {
 
   _buildBg() {
     const W = CONFIG.WORLD_WIDTH, H = CONFIG.WORLD_HEIGHT;
+    const EXT = 1200;
     const oc = document.createElement('canvas');
-    oc.width = W; oc.height = H;
+    oc.width = W + EXT * 2; oc.height = H + EXT * 2;
     const c = oc.getContext('2d');
+    // 캔버스 원점을 EXT만큼 이동하여 음수 좌표 그리기 가능하게
+    c.translate(EXT, EXT);
 
     // 바닥 — tile.png 우선
     const tileImg = Images.getTile && Images.getTile();
+    const ts = 128;
     if (tileImg) {
-      const ts = 128;
-      for (let gx = 0; gx < W; gx += ts) {
-        for (let gy = 0; gy < H; gy += ts) {
+      // 바깥 영역 포함 전체 타일링 (-EXT ~ W+EXT, -EXT ~ H+EXT)
+      for (let gx = -EXT; gx < W + EXT; gx += ts) {
+        for (let gy = -EXT; gy < H + EXT; gy += ts) {
           c.drawImage(tileImg, gx, gy, ts, ts);
         }
       }
+      // 맵 바깥 영역 어두운 오버레이
+      c.fillStyle = 'rgba(0,0,0,0.35)';
+      // 위
+      c.fillRect(-EXT, -EXT, W + EXT * 2, EXT);
+      // 아래
+      c.fillRect(-EXT, H, W + EXT * 2, EXT);
+      // 왼쪽
+      c.fillRect(-EXT, 0, EXT, H);
+      // 오른쪽
+      c.fillRect(W, 0, EXT, H);
     } else {
+      // 기존 그라디언트 배경 (맵 내부만)
       const grad = c.createLinearGradient(0, 0, W, H);
       grad.addColorStop(0, '#6db33f');
       grad.addColorStop(0.5, '#7ec84a');
       grad.addColorStop(1, '#5fa032');
       c.fillStyle = grad;
-      c.fillRect(0, 0, W, H);
-      c.globalAlpha = 0.06;
-      for (let gx = 0; gx < W; gx += 80) {
-        for (let gy = 0; gy < H; gy += 80) {
-          const v = (Math.sin(gx * 0.007) + Math.cos(gy * 0.009)) * 0.5 + 0.5;
-          c.fillStyle = v > 0.5 ? '#88d44f' : '#5a9a2e';
-          c.fillRect(gx, gy, 80, 80);
-        }
-      }
-      c.globalAlpha = 1;
+      c.fillRect(-EXT, -EXT, W + EXT * 2, H + EXT * 2);
     }
 
     // Paths
@@ -214,6 +220,36 @@ class World {
       }
     }
 
+    // 맵 경계 붉은 사선 (해칭 패턴)
+    c.save();
+    c.strokeStyle = 'rgba(220,50,50,0.6)';
+    c.lineWidth = 3;
+    c.setLineDash([24, 12]);
+    c.strokeRect(2, 2, W - 4, H - 4);
+    c.setLineDash([]);
+
+    // 경계면 사선 해칭
+    const hatchW = 18;
+    const hatchColor = 'rgba(180,30,30,0.5)';
+    c.fillStyle = hatchColor;
+    // 위쪽 띠 (해칭)
+    for (let x = 0; x < W; x += hatchW * 2) {
+      c.fillRect(x, 0, hatchW, hatchW);
+    }
+    // 아래쪽 띠
+    for (let x = 0; x < W; x += hatchW * 2) {
+      c.fillRect(x, H - hatchW, hatchW, hatchW);
+    }
+    // 왼쪽 띠
+    for (let y = 0; y < H; y += hatchW * 2) {
+      c.fillRect(0, y, hatchW, hatchW);
+    }
+    // 오른쪽 띠
+    for (let y = 0; y < H; y += hatchW * 2) {
+      c.fillRect(W - hatchW, y, hatchW, hatchW);
+    }
+    c.restore();
+
     this._bg = oc;
     this._bgDirty = false;
   }
@@ -230,7 +266,7 @@ class World {
 
   draw(ctx, camera) {
     if (this._bgDirty || !this._bg) this._buildBg();
-    ctx.drawImage(this._bg, 0, 0);
+    ctx.drawImage(this._bg, -1200, -1200);
   }
 
   // Find a spot not inside tree canopies (approx)
