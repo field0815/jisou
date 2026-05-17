@@ -174,11 +174,14 @@ class House {
 
     const hpRatio = hp / maxHp;
 
-    // PNG 가 있으면 우선 사용 (항상 반투명 — 내부에서 무슨 일이 일어나는지 보이게)
+    // PNG 가 있으면 우선 사용 — 안에 누군가 있을 때만 반투명
     const houseImg = Images.getHouse && Images.getHouse();
     if (houseImg) {
+      // 집 내부에 실장석이 있는지 (집 영역 내)
+      const anyInside = Game.siljangsukList.some(s =>
+        !s.dead && s.x > x && s.x < x + w && s.y > y && s.y < y + h);
       ctx.save();
-      ctx.globalAlpha = this.vacant ? 0.35 : 0.55;
+      ctx.globalAlpha = this.vacant ? 0.4 : (anyInside ? 0.55 : 1.0);
       ctx.drawImage(houseImg, x - 6, y - 12, w + 12, h + 18);
       ctx.restore();
       this._drawHpAndLabel(ctx, hpRatio);

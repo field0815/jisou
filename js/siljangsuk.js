@@ -136,6 +136,12 @@ class Siljangsuk {
     // 사망 후 시체 페이드 타이머
     this.fadeTimer = 0;
 
+    // 출생 day (노쇠사 판정용) — Game 가 준비됐을 때만
+    this.bornDayIndex = (typeof Game !== 'undefined' && Game.dayIndex !== undefined) ? Game.dayIndex : 0;
+
+    // 혈연 세대 (4대 제한용)
+    this.generation = 0;
+
     // 물 마시기 (하루 1회)
     this.thirstyDayKey = -2;     // 마지막으로 물 마신 날
     this.lastWaterDayKey = -2;
@@ -245,15 +251,18 @@ class Siljangsuk {
       return `${prefix}#${this.serialNo ?? '?'}`;
     }
 
-    // 자식: 부모 라벨 + 출생순서
+    // 자식: '부모의 장녀/차녀/N녀' 형식
     if (this.parentId !== null && this.birthOrder > 0) {
+      const titleMap = { 1: '장녀', 2: '차녀', 3: '삼녀' };
+      const title = titleMap[this.birthOrder] ?? `${this.birthOrder}녀`;
       const p = Game.getEntity(this.parentId);
       if (p && !p.dead && p.label) {
-        return `${prefix}${p.label}-${this.birthOrder}`;
+        return `${prefix}${p.label}의 ${title}`;
       }
       if (this.parentLabelSnapshot) {
-        return `${prefix}${this.parentLabelSnapshot}-${this.birthOrder}`;
+        return `${prefix}${this.parentLabelSnapshot}의 ${title}`;
       }
+      return `${prefix}${title}`;
     }
     return `${prefix}#${this.serialNo ?? '?'}`;
   }
@@ -328,8 +337,9 @@ class Siljangsuk {
       this.satiation = Math.max(0, this.satiation - sLoss * dt);
     }
 
-    // HP regen — 오직 밤에만 회복 (포만이 1이상일 때)
-    if (game.isNight && this.satiation > 0 && this.hp < this.maxHp) {
+    // HP regen — 밤 + 집 근처 + 포만 > 0 (노숙 시 회복 X)
+    const houseNear = this.house && this.house.isNear(this.x, this.y, 60);
+    if (game.isNight && houseNear && this.satiation > 0 && this.hp < this.maxHp) {
       const regen = CONFIG.HP_REGEN_PER_SEC * dt;
       this.hp        = Math.min(this.maxHp, this.hp + regen);
       this.satiation = Math.max(0, this.satiation - regen * 0.4);
@@ -386,6 +396,8 @@ class Siljangsuk {
       if (this.happiness > 60)        growRate = CONFIG.GROWTH_RATE_HIGH;
       else if (this.happiness <= 20)   growRate = CONFIG.GROWTH_RATE_LOW;
       else                             growRate = CONFIG.GROWTH_RATE_MID;
+      // 분충은 성장 속도 1.5배 (대신 음식 많이 소비)
+      if (this.personality === CONFIG.PERSONALITY_BUNCHUNG) growRate *= 1.5;
 
       // 각 단계의 성장 상한
       const growCap = this.stage < 4
@@ -401,8 +413,17 @@ class Siljangsuk {
       }
     }
 
-    // ── stage 4 시간 누적 (분가/행복 판정용; 노쇠사 없음) ──
-    if (this.stage === 4) this.stage4Age += dt;
+    // ── stage 4 시간 누적 + 10일 후 노쇠사 ──────────────
+    if (this.stage === 4) {
+      this.stage4Age += dt;
+      const age = game.dayIndex - (this.bornDayIndex ?? 0);
+      if (age >= CONFIG.OLDAGE_DAYS) {
+        this._die(game, '노쇠');
+        // 보스였다면 조직 분할 트리거
+        if (game._onBossDeath) game._onBossDeath(this);
+        return;
+      }
+    }
 
     // ── stage 4 분가: 부모 집에 잠깐 머문 뒤 독립해서 공원으로 퍼져나감 ──
     //   조건: 본인이 집 주인이 아니고 + 충분히 자랐고(90초≈1일) + 굶주리지 않음
@@ -478,7 +499,17 @@ class Siljangsuk {
 
     if (this.pregnant) {
       this.pregnancyTimer += dt;
-      if (this.pregnancyTimer >= CONFIG.PREGNANCY_DURATION) this._giveBirth(game);
+      if (this.pregnancyTimer >= CONFIG.PREGNANCY_DURATION) {
+        // 반드시 집 근처에서만 출산
+        const hb = this.house;
+        if (hb && hb.isNear(this.x, this.y, 60)) {
+          this._giveBirth(game);
+        } else if (hb) {
+          // 집으로 즉시 이동
+          this._setState('going_home');
+          this._setTarget(hb.cx, hb.cy, true);
+        }
+      }
     }
 
     // ── 관계 누적 (주변 실장석과 천천히 반응) — 1% 확률로 매 틱 체크 ──
@@ -640,6 +671,13 @@ class Siljangsuk {
     if (this.stage === 4) {
       this.paperCount = 0;
       this.stage4Age  = 0;
+      this.bornDayIndex = game.dayIndex; // 노쇠사 카운트 시작
+      // 4대 이상이면 새 조직으로 독립
+      if ((this.generation ?? 0) >= CONFIG.MAX_GENERATION) {
+        this.familyId   = this.id;
+        this.generation = 0;
+        if (game.logEvent) game.logEvent(`🆕 ${this.label} 4대 분파 — 새 조직 창설`, '#aaffee');
+      }
       game.addParticle(this.x, this.y - 32, '성체 됨! 🌿', '#aaffaa', 3000);
       if (game.logEvent) game.logEvent(`🌿 ${this.label} 성체로 진화`, '#aaffaa');
     } else {
@@ -681,6 +719,8 @@ class Siljangsuk {
       this.birthsGiven++;
       child.birthOrder = this.birthsGiven;
       child.parentLabelSnapshot = this.label;
+      child.bornDayIndex = game.dayIndex;
+      child.generation  = (this.generation ?? 0) + 1;
       // 신생아: 포만 100% + 하루 동안 포만 유지
       child.satiation             = child.maxSat;
       child.satiationFreezeTimer  = 90;
@@ -964,8 +1004,18 @@ class Siljangsuk {
       }
     }
 
-    // Night → sleep (전쟁 중이면 귀가 안 함)
+    // 저녁이 되면 전쟁 중이 아닌 모든 실장석은 집 근처로
     const atWar = this.raidTarget !== null || this.defendAgainst !== null;
+    if (game.dayPhase === 'evening' && !atWar && !this.slaveOf) {
+      const h = this.house;
+      if (h && !h.isNear(this.x, this.y, 120)) {
+        this._setState('going_home');
+        this._setTarget(h.cx, h.cy);
+        return;
+      }
+    }
+
+    // Night → sleep (전쟁 중이면 귀가 안 함, 노숙 시 체력 회복 X)
     if (game.isNight && !atWar) {
       const h = this.house;
       if (h && h.isNear(this.x, this.y, 20)) {
@@ -1027,8 +1077,8 @@ class Siljangsuk {
       }
     }
 
-    // 새끼가 노예를 상대로 놀이 (일방적 HP 소모)
-    if (this.playCooldown <= 0 && Math.random() < 0.012) {
+    // 새끼가 노예를 상대로 놀이 (HP 10 이하면 놀이 X)
+    if (this.hp > 10 && this.playCooldown <= 0 && Math.random() < 0.012) {
       const slave = game.findNearestSiljangsuk(this.x, this.y, 120,
         s => !s.dead && s.slaveOf && s.stage <= 3);
       if (slave) {
@@ -1045,8 +1095,8 @@ class Siljangsuk {
       }
     }
 
-    // 새끼 놀이 (가족 + 같은 단계 형제와)
-    if (this.playCooldown <= 0 && Math.random() < 0.005) {
+    // 새끼 놀이 (가족 + 같은 단계 형제와, HP 10 초과)
+    if (this.hp > 10 && this.playCooldown <= 0 && Math.random() < 0.005) {
       const friend = game.findNearestSiljangsuk(this.x, this.y, 90,
         s => !s.dead && s.id !== this.id && s.familyId === this.familyId && s.stage < 4);
       if (friend) {
@@ -1470,16 +1520,15 @@ class Siljangsuk {
 
   // ── House / Items ───────────────────────────────
   _buildHouse(game) {
-    // 후보지 25개 평가해서 가장 점수 높은 곳에 집을 짓는다
+    // 후보지: 본인 근처(가까운 위치 선호) 20개 + 월드 랜덤 10개
     const candidates = [];
-    for (let i = 0; i < 20; i++) candidates.push(game.world.randomOpenSpot());
-    // 본인 근처에서도 5개 후보 (이미 익숙한 위치 가산점)
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 20; i++) {
       candidates.push({
-        x: Utils.clamp(this.x + Utils.random(-350, 350), 100, CONFIG.WORLD_WIDTH  - 100),
-        y: Utils.clamp(this.y + Utils.random(-350, 350), 100, CONFIG.WORLD_HEIGHT - 100),
+        x: Utils.clamp(this.x + Utils.random(-280, 280), 100, CONFIG.WORLD_WIDTH  - 100),
+        y: Utils.clamp(this.y + Utils.random(-280, 280), 100, CONFIG.WORLD_HEIGHT - 100),
       });
     }
+    for (let i = 0; i < 10; i++) candidates.push(game.world.randomOpenSpot());
 
     let best = candidates[0], bestScore = -Infinity;
     for (const spot of candidates) {
@@ -1489,14 +1538,17 @@ class Siljangsuk {
 
     const hx = Utils.clamp(best.x, 50, CONFIG.WORLD_WIDTH  - CONFIG.HOUSE_WIDTH  - 50);
     const hy = Utils.clamp(best.y, 50, CONFIG.WORLD_HEIGHT - CONFIG.HOUSE_HEIGHT - 50);
-    const house = new House(hx, hy, this.id);
-    game.houses.push(house);
-    game.entities.set(house.id, house);
-    this.houseId  = house.id;
+
+    // 건축 현장 등록 (5초 후 실제 집 생성)
+    game.constructions = game.constructions ?? [];
+    game.constructions.push({
+      x: hx, y: hy, w: CONFIG.HOUSE_WIDTH, h: CONFIG.HOUSE_HEIGHT,
+      ownerId: this.id, progress: 0, duration: CONFIG.BUILD_DURATION,
+    });
     this.paperCount = 0;
     this.carriedItems = this.carriedItems.filter(i => !i.isPaper());
-    game.addParticle(house.cx, house.cy - 20, '집 완성! 🏠', '#ffe066', 2200);
-    if (game.logEvent) game.logEvent(`🏠 ${this.label}가 새 집을 지음`, '#ffe066');
+    game.addParticle(hx + CONFIG.HOUSE_WIDTH/2, hy - 8, '🔨 건축 시작', '#ffe066', 2000);
+    if (game.logEvent) game.logEvent(`🔨 ${this.label}가 집을 짓기 시작`, '#ffcc66');
   }
 
   // 집 후보지 점수 계산
@@ -1546,12 +1598,19 @@ class Siljangsuk {
 
     // 6) 같은 성향 실장석이 근처에 있으면 보너스 (군집 선호)
     let samePersonalityNearby = 0;
+    let sameFamilyNearby = 0;
     for (const s of game.siljangsukList) {
-      if (s.dead || s.id === this.id) continue;
-      if (s.personality !== this.personality) continue;
-      if (Utils.distance(spot, s) < 500) samePersonalityNearby++;
+      if (s.dead || s.id === this.id || s.slaveOf) continue;
+      const d = Utils.distance(spot, s);
+      if (s.personality === this.personality && d < 500) samePersonalityNearby++;
+      if (s.familyId   === this.familyId   && d < 600) sameFamilyNearby++;
     }
     score += samePersonalityNearby * 12;
+    score += sameFamilyNearby * 25;          // 가족 근처 큰 가산점
+
+    // 7) 본인 현재 위치와의 거리 — 가까울수록 좋음
+    const dSelf = Utils.distance(spot, this);
+    score -= dSelf * 0.05;
 
     return score;
   }
@@ -1618,7 +1677,27 @@ class Siljangsuk {
   }
 
   _eat(item) {
-    const mult = (this.personality === CONFIG.PERSONALITY_CONCEPT) ? 1.5 : 1; // 개념 보너스
+    // 코로리: 즉사
+    if (item.isKorori && item.isKorori()) {
+      this._die(Game, '코로리 중독');
+      return;
+    }
+    // 도돈파: 포만 0 + 운치 대량 생성
+    if (item.isDodonpa && item.isDodonpa()) {
+      this.satiation = 0;
+      const h = this.house;
+      if (h) h.addUnci(40);
+      this.happiness = Math.max(0, this.happiness - 20);
+      Game.addParticle(this.x, this.y - 18, '💜 도돈파!', '#aa55cc', 1800);
+      return;
+    }
+    // 분충: 음식을 많이 먹음 (포만 적게 차고 식량 많이 소비)
+    //   → satiation += val * 0.7
+    // 개념: 음식을 적게 먹어도 포만이 많이 참
+    //   → satiation += val * 1.5
+    let mult = 1;
+    if (this.personality === CONFIG.PERSONALITY_CONCEPT)  mult = 1.5;
+    if (this.personality === CONFIG.PERSONALITY_BUNCHUNG) mult = 0.7;
     this.satiation = Math.min(this.maxSat, this.satiation + (item.foodValue ?? 8) * mult);
     if (item.happinessEffect) {
       this.happiness = Utils.clamp(this.happiness + item.happinessEffect, 0, 100);
@@ -1816,8 +1895,22 @@ class Siljangsuk {
     const d  = Math.sqrt(dx * dx + dy * dy);
     if (d > 4) {
       const s = this.speed;
-      this.x += (dx / d) * s * dt;
-      this.y += (dy / d) * s * dt;
+      let nx = this.x + (dx / d) * s * dt;
+      let ny = this.y + (dy / d) * s * dt;
+      // 가족이 아닌 다른 집 내부로는 들어갈 수 없음 (공격용은 외벽까지만)
+      for (const h of Game.houses) {
+        if (h.vacant) continue;
+        if (h.ownerId === this.id) continue;
+        const owner = Game.getEntity(h.ownerId);
+        if (owner && owner.familyId === this.familyId) continue;
+        // 집 영역 안으로 침입 차단
+        if (nx > h.x + 2 && nx < h.x + h.w - 2 && ny > h.y + 2 && ny < h.y + h.h - 2) {
+          // 외벽에서 멈춤
+          nx = this.x; ny = this.y;
+          break;
+        }
+      }
+      this.x = nx; this.y = ny;
     }
     this.x = Utils.clamp(this.x, 8, CONFIG.WORLD_WIDTH  - 8);
     this.y = Utils.clamp(this.y, 8, CONFIG.WORLD_HEIGHT - 8);

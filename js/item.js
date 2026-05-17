@@ -8,6 +8,8 @@ const ITEM_TYPES = {
   confetto:   { label: '콘페이토',   color: '#ff99cc', shape: 'star',   foodVal: [5,10],  happy: 20  },
   nail:       { label: '대못',       color: '#888888', shape: 'cross',  foodVal: [0,0],   happy: 0   },
   tarp:       { label: '방수포',     color: '#4488aa', shape: 'rect',   foodVal: [0,0],   happy: 0   },
+  dodonpa:    { label: '도돈파',     color: '#aa55cc', shape: 'star',   foodVal: [0,0],   happy: -30 },
+  korori:     { label: '코로리',     color: '#222222', shape: 'cross',  foodVal: [0,0],   happy: 0   },
 };
 
 class Item {
@@ -29,7 +31,9 @@ class Item {
     this.happinessEffect = def.happy;
   }
 
-  isFood() { return ['food_bad','food_normal','food_good','confetto'].includes(this.type); }
+  isFood() { return ['food_bad','food_normal','food_good','confetto','dodonpa','korori'].includes(this.type); }
+  isDodonpa() { return this.type === 'dodonpa'; }
+  isKorori()  { return this.type === 'korori'; }
   isPaper() { return this.type === 'paper'; }
   isLeaf()  { return this.type === 'leaf'; }
   isPollen(){ return this.type === 'pollen'; }

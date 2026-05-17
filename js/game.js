@@ -32,6 +32,9 @@ const Game = {
   // 이벤트 로그 (하단 표시)
   events: [],
 
+  // 건축 현장 목록
+  constructions: [],
+
   // 식별 번호 카운터
   nextSerialNo: 1,
 
@@ -43,7 +46,53 @@ const Game = {
   _raidCheckTimer: 0,
 
   tribeLabel(familyId) {
-    return this.tribeNames.get(familyId) ?? `조직#${familyId}`;
+    if (!this.tribeNames.has(familyId)) {
+      this.tribeNames.set(familyId, this._genTribeName());
+    }
+    return this.tribeNames.get(familyId);
+  },
+
+  // 보스 노쇠사 시 조직 분할 (최대 3개)
+  _onBossDeath(boss) {
+    if (!boss || !boss.familyId) return;
+    const fam = boss.familyId;
+    const members = this.siljangsukList.filter(s =>
+      !s.dead && s.familyId === fam && s.id !== boss.id && !s.slaveOf);
+    if (members.length < 2) return;
+    // 혈통별 그룹화 (parentId 기준)
+    const groups = new Map();
+    for (const m of members) {
+      const key = m.parentId ?? 'orphan';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(m);
+    }
+    // 큰 그룹 순으로 상위 3개만 유지, 나머지는 가장 큰 그룹에 흡수
+    const sorted = [...groups.entries()].sort((a, b) => b[1].length - a[1].length);
+    const keepCount = Math.min(3, sorted.length);
+    const keep = sorted.slice(0, keepCount);
+    const rest = sorted.slice(keepCount).flatMap(([, arr]) => arr);
+    if (rest.length) keep[0][1].push(...rest);
+
+    // 가장 큰 그룹은 원래 familyId 유지, 나머지는 새 familyId
+    for (let i = 0; i < keep.length; i++) {
+      const [, arr] = keep[i];
+      const newFam = i === 0 ? fam : arr[0].id;
+      const name = i === 0 ? this.tribeLabel(fam) : this._genTribeName();
+      this.tribeNames.set(newFam, name);
+      for (const m of arr) {
+        m.familyId = newFam;
+        m.generation = 0;
+      }
+    }
+    this.logEvent(`⚜ 보스 사망! 조직이 ${keep.length}개로 분열`, '#ffaa44');
+  },
+
+  _genTribeName() {
+    const ADJ  = ['무서운', '잔인한', '거대한', '귀여운', '매지컬', '세레브한', '뒷마당', '새카만', '달콤한', '초록빛'];
+    const NOUN = ['미도리', '테치카', '들꽃', '쓰레기장', '연못', '사거리', '프라다', '구찌', '안나수이', '에르메스', '스시', '스테이크', '콘페이토'];
+    const a = ADJ [Math.floor(Math.random() * ADJ.length)];
+    const n = NOUN[Math.floor(Math.random() * NOUN.length)];
+    return `${a} ${n}파`;
   },
   renameTribe(familyId, name) {
     if (!name) this.tribeNames.delete(familyId);
@@ -169,7 +218,11 @@ const Game = {
     // ── Day phase 계산 ────────────────────────────
     this.dayTime += dt;
     const cycle = CONFIG.DAY_LENGTH + CONFIG.NIGHT_LENGTH;
-    if (this.dayTime >= cycle) { this.dayTime -= cycle; this.dayIndex++; }
+    if (this.dayTime >= cycle) {
+      this.dayTime -= cycle;
+      this.dayIndex++;
+      this._onNewDay(this.dayIndex);
+    }
 
     const t   = this.dayTime;
     let newPhase;
@@ -190,6 +243,20 @@ const Game = {
     for (const h of this.humans)         h.update(dt, this);
     for (const p of this.pollenClouds)   p.update(dt, this);
     for (const tc of this.trashCans)     tc.update(dt, this);
+
+    // 건축 현장 진행
+    for (const c of this.constructions) c.progress += dt;
+    const completed = this.constructions.filter(c => c.progress >= c.duration);
+    this.constructions = this.constructions.filter(c => c.progress < c.duration);
+    for (const c of completed) {
+      const house = new House(c.x, c.y, c.ownerId);
+      this.houses.push(house);
+      this.entities.set(house.id, house);
+      const owner = this.entities.get(c.ownerId);
+      if (owner && !owner.dead) owner.houseId = house.id;
+      this.addParticle(house.cx, house.cy - 20, '집 완성! 🏠', '#ffe066', 2200);
+      if (owner) this.logEvent(`🏠 ${owner.label}의 집 완공`, '#ffe066');
+    }
 
     // 소지 아이템 위치 동기화
     for (const item of this.items) {
@@ -270,6 +337,20 @@ const Game = {
     this._checkUnlocks();
   },
 
+  // ── 매일 처음 (dayIndex 갱신 시) ────────────────────
+  _onNewDay(d) {
+    if (d > 0 && d % CONFIG.CAT_SPAWN_DAYS === 0) {
+      const h = new Human(3); // cat
+      this.humans.push(h); this.entities.set(h.id, h);
+      this.logEvent(`🐱 고양이 등장!`, '#ff9944');
+    }
+    if (d > 0 && d % CONFIG.ATTACKER_SPAWN_DAYS === 0) {
+      const h = new Human(2); // attacker
+      this.humans.push(h); this.entities.set(h.id, h);
+      this.logEvent(`👊 학대파 등장!`, '#ff2222');
+    }
+  },
+
   // ── Phase change → 식사 스케줄 알림 ──────────────
   _onPhaseChange(from, to) {
     // 밤→아침 전환 시 인간 퇴장
@@ -345,6 +426,32 @@ const Game = {
     // 운치굴은 타일셋(배경) 바로 위, 다른 모든 객체보다 아래에 그림
     for (const h of this.houses) {
       if (h.drawUnci) h.drawUnci(ctx, camera);
+    }
+
+    // 건축 현장 — 서서히 떠오르는 집
+    for (const c of this.constructions) {
+      const p = Math.min(1, c.progress / c.duration);
+      ctx.save();
+      ctx.globalAlpha = 0.25 + p * 0.5;
+      const houseImg = Images.getHouse && Images.getHouse();
+      if (houseImg) {
+        ctx.drawImage(houseImg, c.x - 6, c.y - 12, c.w + 12, c.h + 18);
+      } else {
+        ctx.fillStyle = '#c8a070';
+        ctx.fillRect(c.x, c.y + c.h * 0.25, c.w, c.h * 0.75);
+      }
+      ctx.restore();
+      // 건축중 텍스트
+      ctx.save();
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 3;
+      ctx.font = 'bold 12px "Noto Sans KR", sans-serif';
+      ctx.textAlign = 'center';
+      const txt = `🔨 건축중… ${Math.floor(p * 100)}%`;
+      ctx.strokeText(txt, c.x + c.w / 2, c.y - 4);
+      ctx.fillText  (txt, c.x + c.w / 2, c.y - 4);
+      ctx.restore();
     }
 
     // Y-sort: 화면상 더 아래(y가 큰) 쪽이 위에 그려짐

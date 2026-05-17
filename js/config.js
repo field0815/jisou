@@ -87,6 +87,19 @@ const CONFIG = {
 
   HUMAN_SPAWN_INTERVAL_DAY: 90,
 
+  // 노쇠사: stage 4 도달 후 게임시간 10일 경과 시 사망
+  OLDAGE_DAYS: 10,
+
+  // 인간 주기 (며칠마다 자동 등장)
+  CAT_SPAWN_DAYS:      3,
+  ATTACKER_SPAWN_DAYS: 5,
+
+  // 4대 이상 혈연 제한
+  MAX_GENERATION: 4,
+
+  // 건축 시간 (초)
+  BUILD_DURATION: 5,
+
   PERSONALITY_BUNCHUNG: 0,
   PERSONALITY_NORMAL: 1,
   PERSONALITY_CONCEPT: 2,

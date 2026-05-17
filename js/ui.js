@@ -567,6 +567,8 @@ const MENU_ITEMS = [
   { label: '콘페이토', icon: '🍬', type: 'confetto', unlock: CONFIG.MENU_TIER1 },
   { label: '대못',     icon: '🔩', type: 'nail',     unlock: CONFIG.MENU_TIER2 },
   { label: '방수포',   icon: '🏕️', type: 'tarp',     unlock: CONFIG.MENU_TIER2 },
+  { label: '도돈파',   icon: '💜', type: 'dodonpa',  unlock: CONFIG.MENU_TIER1 },
+  { label: '코로리',   icon: '💀', type: 'korori',   unlock: CONFIG.MENU_TIER2 },
   { label: '쓰레기통', icon: '🗑️', type: 'trashcan', unlock: 0 },
   { label: '수돗가',   icon: '🚰', type: 'tap',      unlock: 0 },
   { label: '애호파 인간', icon: '🧑', type: 'human_1', unlock: 0 },
