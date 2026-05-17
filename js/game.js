@@ -101,6 +101,8 @@ const Game = {
 
   _keys:   {},
   _mouse:  { screenX: 0, screenY: 0, worldX: 0, worldY: 0 },
+  _drag:   null,            // { entity, lastX, lastY, vx, vy, startTime, moved }
+  _lastTap:{ entity: null, time: 0 },
   _itemSpawnTimer:   0,
   _humanSpawnTimer:  0,
   _pollenSpawnTimer: 0,
@@ -865,10 +867,82 @@ const Game = {
       const w = this.camera.screenToWorld(e.clientX, e.clientY);
       this._mouse.worldX = w.x;
       this._mouse.worldY = w.y;
+      // 드래그 중: 엔티티 위치 동기화 + 속도 추적
+      if (this._drag && this._drag.entity && !this._drag.entity.dead) {
+        const dxm = w.x - this._drag.lastX, dym = w.y - this._drag.lastY;
+        if (Math.hypot(dxm, dym) > 2) this._drag.moved = true;
+        this._drag.vx = dxm / 0.016;
+        this._drag.vy = dym / 0.016;
+        this._drag.entity.x = w.x;
+        this._drag.entity.y = w.y;
+        this._drag.lastX = w.x;
+        this._drag.lastY = w.y;
+      }
+    });
+
+    // 마우스 다운: 실장석 위에서 드래그 시작
+    window.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      if (this.ui.selectedMenu >= 0) return;  // 메뉴 사용 중일 땐 드래그 X
+      const wx = this._mouse.worldX, wy = this._mouse.worldY;
+      let picked = null;
+      for (const s of this.siljangsukList) {
+        if (s.dead) continue;
+        if (Utils.distance({ x: wx, y: wy }, s) < (s.size + 6)) { picked = s; break; }
+      }
+      if (picked) {
+        // 더블탭 체크 (350ms 이내 같은 대상)
+        const now = performance.now();
+        if (this._lastTap.entity === picked && (now - this._lastTap.time) < 350) {
+          const dmg = picked.stage === 4 ? 10 : 5;
+          picked.hp = Math.max(0, picked.hp - dmg);
+          picked.hitFlashTimer = 0.35;
+          this.addParticle(picked.x, picked.y - 18, `-${dmg}(찰싹)`, '#ff4444', 1000);
+          this._lastTap = { entity: null, time: 0 };
+          return;
+        }
+        this._lastTap = { entity: picked, time: now };
+
+        // 드래그 시작
+        this._drag = {
+          entity: picked, lastX: wx, lastY: wy,
+          vx: 0, vy: 0, startTime: now, moved: false,
+        };
+        picked.beingDragged = true;
+        picked.thrown = false;
+        picked.vx = 0; picked.vy = 0;
+      }
+    });
+
+    window.addEventListener('mouseup', e => {
+      if (e.button !== 0) return;
+      if (this._drag && this._drag.entity) {
+        const ent = this._drag.entity;
+        ent.beingDragged = false;
+        if (this._drag.moved) this._justDragged = true;
+        const sp = Math.hypot(this._drag.vx, this._drag.vy);
+        // 빠르게 놓으면 던져짐 — 속도 비례 데미지
+        if (sp > 600) {
+          ent.thrown = true;
+          ent.vx = this._drag.vx * 0.4;
+          ent.vy = this._drag.vy * 0.4;
+          const dmg = Math.min(40, Math.floor(sp / 100));
+          if (dmg > 0) {
+            ent.hp = Math.max(0, ent.hp - dmg);
+            ent.hitFlashTimer = 0.35;
+            this.addParticle(ent.x, ent.y - 16, `-${dmg}(던지기)`, '#ff4444', 1200);
+          }
+        }
+        // 놓은 자리가 연못이면 익사 시작
+        ent._checkPondImmerse(this);
+        this._drag = null;
+      }
     });
 
     window.addEventListener('click', e => {
       AudioMgr.startOnGesture();
+      // 방금 드래그 했으면 click 무시 (잘못된 메뉴/선택 방지)
+      if (this._justDragged) { this._justDragged = false; return; }
       const sx = e.clientX, sy = e.clientY;
       const wx = this._mouse.worldX, wy = this._mouse.worldY;
 

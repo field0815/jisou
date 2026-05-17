@@ -52,9 +52,10 @@ class PollenCloud {
       }
     }
 
-    // 4단계 실장석 접촉 → 임신
+    // 4단계 실장석 접촉 → 임신 (3일 불임 기간 존중)
     for (const s of game.siljangsukList) {
       if (s.dead || s.stage !== 4 || s.pregnant) continue;
+      if (game.dayIndex < (s._fertileAfterDay ?? 0)) continue;
       if (Utils.distance(this, s) < 36) {
         s.pregnant       = true;
         s.pregnancyTimer = 0;

@@ -28,10 +28,16 @@ const Images = {
     pImg.onload  = () => { this._imgs.poo_cave = pImg; };
     pImg.onerror = () => {};
     pImg.src = 'images/poo_cave.png';
+    // 임신한 성체
+    const prImg = new Image();
+    prImg.onload  = () => { this._imgs.stage4_pregnant = prImg; };
+    prImg.onerror = () => {};
+    prImg.src = 'images/stage4_pregnant.png';
   },
 
-  getHouse()   { return this._imgs.house    ?? null; },
-  getPooCave() { return this._imgs.poo_cave ?? null; },
+  getHouse()    { return this._imgs.house           ?? null; },
+  getPooCave()  { return this._imgs.poo_cave        ?? null; },
+  getPregnant() { return this._imgs.stage4_pregnant ?? null; },
 
   // 해당 단계 이미지가 로드됐으면 반환, 아니면 null
   get(stage) {
