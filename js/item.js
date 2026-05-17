@@ -29,6 +29,8 @@ class Item {
     this.foodValue = fmin === fmax ? fmin : Utils.randomInt(fmin, fmax);
     this.claimedBy = null;
     this.happinessEffect = def.happy;
+    // 필드 음식 3일 후 소멸용
+    this.spawnDayIndex = (typeof Game !== 'undefined' && Game.dayIndex !== undefined) ? Game.dayIndex : 0;
   }
 
   isFood() { return ['food_bad','food_normal','food_good','confetto','dodonpa','korori'].includes(this.type); }

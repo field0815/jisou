@@ -5,51 +5,160 @@ const STAGE_COLORS = ['', '#ffb3d9', '#c9a0f5', '#90c0ff', '#78e878', '#f0c060']
 const STAGE_LABELS = ['', '구더기', '엄지', '자실장', '성체실장', '중성체 실장'];
 
 // 단계 / 상황별 대사 — 말 끝 어미는 단계별 고정
-const SLEEP_LINES = ['ZzzZzz', 'Zzz…', 'ZzzzZ', 'Zzz~'];
+const SLEEP_LINES = ['ZzzZzz', 'Zzz…', 'ZzzzZ', 'Zzz~', 'Zzzz', 'zZ zZ', 'Zzz♪', 'zzz...', 'Zzz Zzz', 'Z…'];
 
 const SPEECHES = {
   1: { // 레후
-    idle:    ['프니프니를 바라는레후', '프니프니!', '레후~'],
-    food:    ['배고픈레후', '맘마 줘레후~'],
-    sleep:   SLEEP_LINES,
-    hurt:    ['아픈레후!', '으앙레후!'],
-    unci:    ['응가레후', '냠냠레후?'],
-    play:    ['신난레후!', '같이 놀자레후~'],
+    idle: [
+      '프니프니를 바라는레후', '프니프니!', '레후~', '으응…레후', '따뜻한레후',
+      '마마 어디 있는레후?', '안아줘레후~', '헤헤 레후', '졸린레후', '레후레후~',
+    ],
+    food: [
+      '배고픈레후', '맘마 줘레후~', '우물우물레후', '마마…레후', '더 먹을래레후!',
+      '맛있는레후!', '응응 음식 좋아하는레후', '입이 마른레후', '으아앙 빨리 줘레후', '뭐든지 다 먹는레후',
+    ],
+    sleep: SLEEP_LINES,
+    hurt: [
+      '아픈레후!', '으앙레후!', '아야야레후', '무서운레후…', '살려달라레후',
+      '누가 도와줘레후', '무서워서 우는레후', '마마! 마마! 도와줘레후', '도망가는레후', '무섭다레후…',
+    ],
+    unci: [
+      '응가레후', '냠냠레후?', '잘 쌌레후', '시원하레후', '우끼끼레후',
+      '또 응가레후', '더러운 거 아니레후', '운치 좋아하는레후', '운치 시간이레후', '행복한 응가레후',
+    ],
+    play: [
+      '신난레후!', '같이 놀자레후~', '빙글빙글 즐거운레후', '누구든 같이 놀자레후', '우유아유유 즐거운레후',
+      '어지러운레후', '다같이 빙글빙글 레후', '즐거워레후 헤헤', '노래도 부른레후~', '친구들 좋아레후',
+    ],
   },
   2: { // 레치
-    idle:    ['먹어도 먹어도 배고픈 레치', '심심한레치!', '구더기쨩이랑 놀고싶은레치'],
-    food:    ['먹이가 어디있는레치?', '냠냠 시간레치!'],
-    sleep:   SLEEP_LINES,
-    hurt:    ['아프레치!', '울고싶은레치!'],
-    unci:    ['응가하는레치', '시원한레치~'],
-    play:    ['노는게 좋은레치!', '뱅뱅 도는레치!'],
+    idle: [
+      '먹어도 먹어도 배고픈 레치', '심심한레치!', '구더기쨩이랑 놀고싶은레치', '오늘은 무엇을 할 레치?',
+      '마마 어디 갔레치?', '누가 옆에 있어주면 좋겠레치', '따뜻한 햇살이 좋은레치', '운치굴 가는 길레치',
+      '부지런해야 하는레치', '한가하면 졸린레치',
+    ],
+    food: [
+      '먹이가 어디있는레치?', '냠냠 시간레치!', '맛있는 거 어디 없레치?', '꼬르륵 소리나는레치',
+      '음식만 있으면 행복하레치', '마마가 음식 가져오는레치?', '음식 사냥하는레치', '떨어진 거 주워먹는레치',
+      '또 배고프네 레치', '맛있는 거 먹고 싶은레치',
+    ],
+    sleep: SLEEP_LINES,
+    hurt: [
+      '아프레치!', '울고싶은레치!', '마마! 도와줘레치', '아야 아야 레치', '무섭레치',
+      '살려달라 레치', '누가 와줘 레치', '도망가야 하는레치', '아파서 못 움직이는레치', '어지럽레치',
+    ],
+    unci: [
+      '응가하는레치', '시원한레치~', '운치굴 들어간레치', '또 똥 누는레치', '화장실 가는레치',
+      '살 빠질것 같은레치', '큰 일 본레치', '하루의 임무 끝낸레치', '시원하니 후련한레치', '운치는 좋은 것 레치',
+    ],
+    play: [
+      '노는게 좋은레치!', '뱅뱅 도는레치!', '빙글빙글 즐거운레치', '다같이 노는 시간 레치',
+      '어지러워서 행복한레치', '친구가 있어 좋은레치', '같이 빙빙 돌자 레치', '이렇게 놀면 어지럽레치',
+      '헤헤 친구들이랑 노는레치', '더 놀고 싶은레치~',
+    ],
   },
   3: { // 테치
     idle: {
-      [-1]:    ['먹을 것을 찾아보는테치!'],
-      [0]:     ['창고에 맛나맛나 없는테치?'],
-      [1]:     ['마마 좋은 테치'],
+      [-1]: [
+        '먹을 것을 찾아보는테치!', '음식이 어디 있을지 고민하는테치', '가족 위해 부지런해야 하는테치',
+        '효율적으로 모아야 하는테치', '체계가 중요한테치', '먹을 거 충분히 모아야 하는테치',
+        '오늘도 한 차례 둘러봐야 하는테치', '음식 모으는 게 보람있는테치', '비축이 가족을 살리는테치',
+        '생각이 많은테치',
+      ],
+      [0]: [
+        '창고에 맛나맛나 없는테치?', '내 거 좀 더 가져가도 되는테치', '나만 굶주리면 안되는테치',
+        '가족이라도 내 먼저인테치', '음식은 내가 먼저 보는테치', '나누는 거 싫어하는테치',
+        '경쟁자가 많아진테치', '이런 데서 음식 또 어디 있을까테치', '먹을 거만 보면 욕심 나는테치',
+        '내 몫은 챙겨야 하는테치',
+      ],
+      [1]: [
+        '마마 좋은 테치', '오늘은 평화로운테치', '심심하지만 좋은 테치', '마마와 같이 있는테치',
+        '따뜻한 햇살 좋은테치', '운치굴 곁이 안심되는테치', '가족이 모이면 행복한테치',
+        '평화로운 하루 만족하는테치', '큰 일 없으면 좋은테치', '오늘도 무사한테치',
+      ],
     },
-    food:    ['먹이를 찾아 떠나는테치', '오늘은 어디에 음식이 있을까테치'],
-    sleep:   SLEEP_LINES,
-    hurt:    ['아프다테치!', '울지 않는테치'],
-    unci:    ['용변보는 테치', '운치굴이 가까운테치'],
-    raid:    ['싸우러 가는테치!'],
-    birth:   ['아기 낳는테치!'],
-    play:    ['뱅글뱅글 즐거운테치!', '같이 놀아 신나는테치~'],
+    food: [
+      '먹이를 찾아 떠나는테치', '오늘은 어디에 음식이 있을까테치', '맛난 거 보이면 가져갈테치',
+      '음식 모으는 게 중요한테치', '가족 위해 음식 가져가는테치', '누가 음식 떨어뜨려주면 좋겠테치',
+      '음식이 많아야 평화로운테치', '굶주리면 큰일나는테치', '음식 좀 더 있으면 좋겠테치', '사냥감 어디 있는테치?',
+    ],
+    sleep: SLEEP_LINES,
+    hurt: [
+      '아프다테치!', '울지 않는테치', '도망가야 하는테치', '화나는테치!', '누가 도와주는테치?',
+      '죽고 싶지 않은테치', '살 수 있을지 걱정되는테치', '다시는 안 맞을테치', '아파도 참는테치', '마마 어디 있는테치?',
+    ],
+    unci: [
+      '용변보는 테치', '운치굴이 가까운테치', '시원한 일 보는테치', '운치 잘 나오는테치', '화장실 시간테치',
+      '큰 일 했더니 후련한테치', '운치 많아지면 좋은테치', '응가 시간 행복한테치', '깔끔하게 본 테치', '운치굴 좋아하는테치',
+    ],
+    raid: [
+      '싸우러 가는테치!', '적을 박살내는테치!', '가족을 위해 싸우는테치', '우리 조직이 이기는테치!',
+      '보스님 따라가는테치', '위험해도 가는테치', '무서워도 가는테치', '적을 혼내주는테치',
+      '다 같이 가는테치!', '이번엔 꼭 이기는테치',
+    ],
+    birth: [
+      '아기 낳는테치!', '새 자가 태어나는테치~', '마마가 되는테치', '새 생명 환영하는테치',
+      '가족이 늘어나는테치', '자가 건강하면 좋은테치', '출산은 행복한테치', '자들이 자라는 게 기쁜테치',
+      '처음 만나는 자들테치', '따뜻한 출산 시간테치',
+    ],
+    play: [
+      '뱅글뱅글 즐거운테치!', '같이 놀아 신나는테치~', '친구들이 있어 좋은테치', '빙빙 도는 게 재미있는테치',
+      '누구든 같이 놀자테치', '어지러워도 행복한테치', '노래 부르며 도는테치', '가장 좋은 시간테치',
+      '더 놀고 싶은테치', '친구가 있어 다행인테치',
+    ],
   },
   4: { // 데스
-    idle:    ['자들을 먹여살리는데스', '공원은 위험한데스', '오늘도 살아남는데스!'],
-    food:    ['먹이 사냥에 나서는데스', '가족을 위해 모으는데스'],
-    sleep:   SLEEP_LINES,
-    hurt:    ['반격하는데스!', '아프지만 견디는데스'],
-    unci:    ['용변보는데스', '운치굴 다녀오는데스'],
-    raid:    ['적 조직을 박살내는데스!', '습격이다! 모이는데스!'],
-    birth:   ['뎃데로게~ 출산이다 데스!'],
-    meal:    ['식사 시간데스'],
-    evening: ['자들은 모두 착한데스', '마마가 맘마를 주는데스', '오늘도 다같이 무사한데스', '자들과 함께가 좋은데스'],
-    taegyo:  ['뎃데로게~ 뎃데로게~', '뎃데로게~ ♪'],
-    play:    ['세상은 즐거운데스~', '자들과 노는 시간 행복한데스'],
+    idle: [
+      '자들을 먹여살리는데스', '공원은 위험한데스', '오늘도 살아남는데스!', '평화로운 하루데스',
+      '가족이 모두 안전한데스', '음식이 충분해야 안심하는데스', '책임이 무거운데스',
+      '자들과 함께가 행복한데스', '보스님은 든든한데스', '모두를 지키는데스',
+    ],
+    food: [
+      '먹이 사냥에 나서는데스', '가족을 위해 모으는데스', '좋은 사냥감 찾는데스', '음식이 부족하면 큰일나는데스',
+      '자들 먼저 먹여야 하는데스', '비축이 중요한데스', '쓰레기통도 살펴보는데스',
+      '동서남북 다 뒤지는데스', '음식 많은 곳을 기억해두는데스', '가족 위해 부지런해야 하는데스',
+    ],
+    sleep: SLEEP_LINES,
+    hurt: [
+      '반격하는데스!', '아프지만 견디는데스', '적을 응징하는데스!', '가족을 위해 버티는데스',
+      '죽지 않는데스', '다친 정도는 괜찮은데스', '누구의 짓인지 가만 안 두는데스',
+      '동료들이 도와주는데스', '일어서야 하는데스', '아파도 가족이 우선인데스',
+    ],
+    unci: [
+      '용변보는데스', '운치굴 다녀오는데스', '운치 많이 쌓는데스', '시원한 시간데스',
+      '운치굴에 노예가 있어 흐뭇한데스', '운치는 가족의 자원이데스', '항상 운치굴 깨끗이 하는데스',
+      '자들도 운치를 보는 시간이데스', '운치 가득 차면 좋은데스', '일하고 나서 운치 시간이데스',
+    ],
+    raid: [
+      '적 조직을 박살내는데스!', '습격이다! 모이는데스!', '가족 영역을 지키는데스!',
+      '보스님 따라 진군하는데스!', '적이 모두 쓰러질 때까지 가는데스', '식량을 약탈해 오는데스',
+      '우리가 이기는데스!', '적 집을 부숴버리는데스!', '다 함께 출진하는데스!', '두려움 없이 가는데스',
+    ],
+    birth: [
+      '뎃데로게~ 출산이다 데스!', '새 자가 태어나는 데스', '가족이 늘어나는 기쁜 데스',
+      '자를 따뜻하게 안아주는 데스', '마마가 되는 시간 데스', '자들아 환영한다 데스',
+      '건강하게 자라야 하는데스', '가문이 번성하는 데스!', '자를 위해 모든 걸 다하겠다 데스', '새 생명이 빛나는 데스',
+    ],
+    meal: [
+      '식사 시간데스', '자들과 함께 먹는 시간데스', '비축한 음식이 든든한데스', '잘 먹어야 잘 사는데스',
+      '자들 먼저 먹여주는데스', '모두 배부르면 좋겠는데스', '음식 맛이 좋은데스',
+      '가족 식사가 가장 행복한데스', '부지런히 모은 보람이 있는데스', '한 끼 한 끼 소중한데스',
+    ],
+    evening: [
+      '자들은 모두 착한데스', '마마가 맘마를 주는데스', '오늘도 다같이 무사한데스', '자들과 함께가 좋은데스',
+      '평화로운 저녁이데스', '하루가 저물어가는데스', '자들 곁에 있으면 안심하는데스',
+      '별이 뜨기 시작하는데스', '모두 모이는 시간데스', '따뜻한 가족 시간데스',
+    ],
+    taegyo: [
+      '뎃데로게~ 뎃데로게~', '뎃데로게~ ♪', '자에게 들려주는데스 ♪', '자가 건강하게 자랄데스',
+      '사랑하는데스~ 뎃데로게~', '노래 부르는데스 ♫', '자야 잘 들어둬라 데스',
+      '따뜻한 마음 전달하는데스', '자가 행복하길 바라는데스', '뎃데로게 뎃데로게 ♪♫',
+    ],
+    play: [
+      '세상은 즐거운데스~', '자들과 노는 시간 행복한데스', '빙글빙글 함께 도는데스',
+      '자들 웃음소리가 좋은데스', '노는 시간만큼은 모두 평등데스', '어지러워도 즐거운데스',
+      '자들 자랑스러운데스', '잠깐 쉬어가는 시간데스', '가족이 가장 즐거운데스', '평화로운 한때데스',
+    ],
   },
 };
 
@@ -168,6 +277,20 @@ class Siljangsuk {
     this._taegyoSessions = 0;
     // 출산 후 3일 불임 — 다음 임신 가능한 dayIndex
     this._fertileAfterDay = -1;
+
+    // 운치 섭취 의도 — 한번 시작하면 포만 가득 찰 때까지 유지 (갈팡질팡 방지)
+    this._eatingUnci = false;
+
+    // 막힘 감지: 동일 좌표 누적 시간 / 마지막 좌표
+    this._stuckTime = 0;
+    this._lastMoveX = this.x;
+    this._lastMoveY = this.y;
+
+    // 마지막 피격 시각 — 밤 회복 3초 지연용
+    this._lastHitTime = -999;
+
+    // 탈주 독라 플래그
+    this.fugitive = false;
     // 처형 표식 (노예가 굶주리면 표식 → 주인이 직접 처형)
     this.markedForExecution = false;
     // 자식 처분 쿨다운
@@ -217,7 +340,9 @@ class Siljangsuk {
   get speed() {
     let s = this.baseSpeed;
     if (this.carriedItems.length > 0 && this.maxCarry > 1) {
-      s *= (1 - 0.3 * (this.carriedItems.length / this.maxCarry));
+      // 최대 -50%까지만 감소
+      const reduce = Math.min(0.5, 0.3 * (this.carriedItems.length / this.maxCarry));
+      s *= (1 - reduce);
     }
     if (this.pregnant)  s *= 0.7;
     if (this.happiness >= 61) s *= 1.1;
@@ -343,6 +468,28 @@ class Siljangsuk {
     this.counterAttackTimer = Math.max(0, this.counterAttackTimer - dt);
     this.playCooldown       = Math.max(0, this.playCooldown - dt);
     this._cullCooldown      = Math.max(0, this._cullCooldown - dt);
+    // 술래잡기 놀이 진행
+    if (this._tagPlay) {
+      this._tagPlay.ttl       -= dt;
+      this._tagPlay.swapAt    -= dt;
+      if (this._tagPlay.startDelay > 0) this._tagPlay.startDelay -= dt;
+      if (this._tagPlay.swapAt <= 0) {
+        const others = (this._tagPlay.group || []).filter(id => id !== this.id);
+        if (others.length > 0) {
+          const newTaggerId = others[Math.floor(Math.random() * others.length)];
+          for (const id of this._tagPlay.group) {
+            const m = Game.getEntity(id);
+            if (m && m._tagPlay) {
+              const becomesTagger = (id === newTaggerId);
+              m._tagPlay.role = becomesTagger ? 'tagger' : 'runner';
+              m._tagPlay.startDelay = becomesTagger ? 0.5 : 0;
+              m._tagPlay.swapAt = 1.7;
+            }
+          }
+        }
+      }
+      if (this._tagPlay.ttl <= 0) this._tagPlay = null;
+    }
     // 빙글빙글 놀이 위치 업데이트 (있을 때만)
     if (this._orbit) {
       this._orbit.angle += this._orbit.speed * dt;
@@ -410,9 +557,11 @@ class Siljangsuk {
       this.satiation = Math.max(0, this.satiation - sLoss * dt);
     }
 
-    // HP regen — 밤 + 집 근처 + 포만 > 0 (노숙 시 회복 X)
+    // HP regen — 밤 + 집 근처 + 포만 > 0 + 마지막 피격 후 3초 이상 (노숙 시 회복 X)
     const houseNear = this.house && this.house.isNear(this.x, this.y, 60);
-    if (game.isNight && houseNear && this.satiation > 0 && this.hp < this.maxHp) {
+    const nowSec    = (typeof performance !== 'undefined') ? performance.now() / 1000 : 0;
+    const sinceHit  = nowSec - (this._lastHitTime ?? -999);
+    if (game.isNight && houseNear && this.satiation > 0 && this.hp < this.maxHp && sinceHit > 3) {
       const regen = CONFIG.HP_REGEN_PER_SEC * dt;
       this.hp        = Math.min(this.maxHp, this.hp + regen);
       this.satiation = Math.max(0, this.satiation - regen * 0.4);
@@ -447,9 +596,9 @@ class Siljangsuk {
     // Stage 1 pniepnie timer
     if (this.stage === 1) this.pniepnieTimer += dt;
 
-    // 집 비축 식량에서 먹기 (허기 상태일 때)
+    // 집 비축 식량에서 먹기 (허기 상태일 때, 밤에는 식사 X)
     const h = this.house;
-    if (this.isHungry && h && h.foodReserves > 0 && h.isNear(this.x, this.y, 120)) {
+    if (!game.isNight && this.isHungry && h && h.foodReserves > 0 && h.isNear(this.x, this.y, 120)) {
       const eatRate  = Math.min(h.foodReserves, 8 * dt);
       const consumed = h.consumeFood(eatRate);
       this.satiation = Math.min(this.maxSat, this.satiation + consumed);
@@ -504,10 +653,13 @@ class Siljangsuk {
         && this.stage4Age > CONFIG.STAGE4_MOVEOUT_TIME && !this.isHungry) {
       const h = this.house;
       if (h && h.ownerId !== this.id) {
-        this.houseId    = null;
-        this.paperCount = 0;
+        // 폐지 5장 / 음식 30 가져갈 수 있으면 챙김
+        let dp = 0, df = 0;
+        if ((h.paperStock ?? 0) >= 10) { dp = 5; h.paperStock -= 5; this.paperCount = (this.paperCount ?? 0) + 5; }
+        if (h.foodReserves >= 30)      { df = 30; h.foodReserves -= 30; }
+        this.houseId = null;
         game.addParticle(this.x, this.y - 30, '분가! 🏃🌿', '#aaccff', 2400);
-        if (game.logEvent) game.logEvent(`🏃 ${this.label} 분가`, '#aaccff');
+        if (game.logEvent) game.logEvent(`🏃 ${this.label} 분가 (📄${dp} 🍱${df})`, '#aaccff', { x: this.x, y: this.y });
       }
     }
 
@@ -516,9 +668,7 @@ class Siljangsuk {
     if (this.stage === 4 && !this.pregnant && !this.isHungry
         && game.dayIndex >= this._fertileAfterDay) {
       if (Math.random() < CONFIG.PREGNANCY_CHANCE_PER_SEC * dt) {
-        this.pregnant       = true;
-        this.pregnancyTimer = 0;
-        game.addParticle(this.x, this.y - 24, '임신!', '#ffaaff', 2000);
+        this._onPregnant(game);
       }
     }
 
@@ -533,8 +683,17 @@ class Siljangsuk {
           this.happiness = Math.min(100, this.happiness + CONFIG.HAPPINESS_DEFECATE_GAIN);
           game.addParticle(this.x, this.y - 14, '💩', '#aa7700', 1000);
           if (Math.random() < 0.4) this._say('unci');
-        } else if (house) {
-          house.addUnci(8);  // 운치굴 밖에서 배변 → 더 많은 운치 (행복 보너스 없음)
+        } else if (house && Utils.distance(this, { x: house.unciX, y: house.unciY }) < 500) {
+          // 500px 안에 본인 운치굴이 있음 → 그쪽으로 가서 싸야 하지만 못 갔으므로 그대로
+          house.addUnci(8);
+        } else {
+          // 운치굴이 500px 안에 없음 → 그 자리에 데후웃!
+          // 바닥 운치 — 하루(낮+저녁+밤 사이클) 후 소멸
+          const dayLen = (CONFIG.DAY_LENGTH ?? 155) + (CONFIG.NIGHT_LENGTH ?? 40);
+          game.floorUnci.push({ x: this.x, y: this.y, amount: 10, life: dayLen });
+          this._speech = '데후웃!';
+          this._speechTimer = 1.5;
+          game.addParticle(this.x, this.y - 14, '💩 데후웃!', '#aa7700', 1800);
         }
         this.defecateTimer = 0;
         this.goingToUnci   = false;
@@ -597,7 +756,7 @@ class Siljangsuk {
           const victim = myKids[0];
           this._cullCooldown = 20;
           this.happiness = Math.max(0, this.happiness - 20);
-          if (game.logEvent) game.logEvent(`🥩 ${this.label}가 굶주려 ${victim.label}를 잡아먹음`, '#ff4444');
+          if (game.logEvent) game.logEvent(`🥩 ${this.label}가 굶주려 ${victim.label}를 잡아먹음`, '#ff4444', { x: this.x, y: this.y });
           victim._die(game, '굶주려 잡아먹힘');
           this.satiation = this.maxSat * 0.5;
         }
@@ -608,11 +767,15 @@ class Siljangsuk {
     if (Math.random() < 0.01) {
       for (const o of game.siljangsukList) {
         if (o.dead || o.id === this.id || o.slaveOf) continue;
-        if (Utils.distance(this, o) > 200) continue;
+        const d = Utils.distance(this, o);
+        if (d > 200) continue;
         let delta = 0;
         if (o.personality === this.personality) delta += 0.5;
         if (o.familyId === this.familyId)       delta += 1.0;
-        // 식량 많은 집 주민에 대해서는 부러움
+        // 성체끼리 너무 좁은 간격(60px 미만)에 있으면 관계 악화
+        if (this.stage === 4 && o.stage === 4 && d < 60 && o.familyId !== this.familyId) {
+          delta -= 1.5;
+        }
         const oh = Game.getEntity(o.houseId);
         if (oh && oh.foodReserves > 60) delta -= 0.3;
         if (delta !== 0) this.addRelation(o.id, delta);
@@ -663,7 +826,7 @@ class Siljangsuk {
     this.dead = true;
     this.fadeTimer = 6;
     game.addParticle(this.x, this.y - 20, '꼬르륵…', '#3377cc', 2500);
-    if (game.logEvent) game.logEvent(`💧 ${this.label} 익사`, '#88aaff');
+    if (game.logEvent) game.logEvent(`💧 ${this.label} 익사`, '#88aaff', { x: this.x, y: this.y });
     if (this.parentId !== null) {
       const p = game.getEntity(this.parentId);
       if (p && !p.dead && p.happiness !== undefined) {
@@ -680,6 +843,7 @@ class Siljangsuk {
     target.lastAttackerId    = this.id;
     target.counterAttackTimer = 5;
     target.hitFlashTimer     = 0.35;
+    target._lastHitTime      = (typeof performance !== 'undefined') ? performance.now() / 1000 : 0;
     this.attackAnimTimer     = 0.35;
     // 관계 악화
     if (target.addRelation) target.addRelation(this.id, -30);
@@ -711,8 +875,8 @@ class Siljangsuk {
     this.fadeTimer = 10;        // 시체 페이드 (10초)
     game.addParticle(this.x, this.y - 28, reason, '#ff4444', 2500);
 
-    // 로그
-    if (game.logEvent) game.logEvent(`💀 ${this.label} 사망 (${reason})`, '#ff8888');
+    // 로그 (위치 포함 — 클릭 시 카메라 이동)
+    if (game.logEvent) game.logEvent(`💀 ${this.label} 사망 (${reason})`, '#ff8888', { x: this.x, y: this.y });
 
     // 부모에게 슬픔 (자식 사망 이벤트)
     if (this.parentId !== null) {
@@ -720,6 +884,30 @@ class Siljangsuk {
       if (parent && !parent.dead && parent.happiness !== undefined) {
         parent.happiness = Math.max(0, parent.happiness - CONFIG.HAPPINESS_CHILD_DEATH);
         game.addParticle(parent.x, parent.y - 22, '💔', '#ff6688', 1800);
+      }
+    }
+
+    // 임신한 실장석 사망 시 10~15마리 고아 구더기 출산
+    if (this.pregnant) {
+      const count = Utils.randomInt(10, 15);
+      for (let i = 0; i < count; i++) {
+        const bx = this.x + Utils.random(-30, 30);
+        const by = this.y + Utils.random(-30, 30);
+        const orphan = game.spawnSiljangsuk(bx, by, 1, null, Utils.randomPersonality(), this.id);
+        orphan.serialNo  = Game.nextSerialNo++;
+        orphan.parentId  = null;       // 고아
+        orphan.parentLabelSnapshot = this.label;
+      }
+      game.addParticle(this.x, this.y - 30, `💔 ${count}마리 고아!`, '#ff66aa', 2800);
+      if (game.logEvent) game.logEvent(`💔 ${this.label} 임신 사망 — 고아 ${count}마리`, '#ff66aa', { x: this.x, y: this.y });
+    }
+
+    // 탈주 독라(fugitive)를 새끼가 죽이면 행복 +10
+    if (this.fugitive && this.lastAttackerId) {
+      const killer = game.getEntity(this.lastAttackerId);
+      if (killer && !killer.dead && killer.stage < 4 && killer.happiness !== undefined) {
+        killer.happiness = Math.min(100, killer.happiness + 10);
+        game.addParticle(killer.x, killer.y - 22, '+10 행복', '#aaffaa', 1500);
       }
     }
 
@@ -736,32 +924,59 @@ class Siljangsuk {
           // 잡아먹힘
           o.hp = 0; o._die(game, '잡아먹힘');
           adopter.satiation = Math.min(adopter.maxSat, adopter.satiation + 15);
-          if (game.logEvent) game.logEvent(`🍖 부모잃은 ${o.label} 잡아먹힘`, '#ff6666');
+          if (game.logEvent) game.logEvent(`🍖 부모잃은 ${o.label} 잡아먹힘`, '#ff6666', { x: o.x, y: o.y });
         } else if (r < 0.90) {
           // 노예
           o.slaveOf = adopter.id;
-          if (game.logEvent) game.logEvent(`⛓ 부모잃은 ${o.label} 노예가 됨`, '#cc6666');
+          if (game.logEvent) game.logEvent(`⛓ 부모잃은 ${o.label} 노예가 됨`, '#cc6666', { x: o.x, y: o.y });
         } else {
           // 입양
           o.parentId = adopter.id;
           o.familyId = adopter.familyId;
           o.houseId  = adopter.houseId;
-          if (game.logEvent) game.logEvent(`🤝 부모잃은 ${o.label} 입양됨`, '#aaffaa');
+          if (game.logEvent) game.logEvent(`🤝 부모잃은 ${o.label} 입양됨`, '#aaffaa', { x: o.x, y: o.y });
         }
       }
     }
 
-    // 단계별 식량 가치 (사망 시 항상 맛있는 음식으로 drop)
-    //   stage 1: 50, stage 2: 50, stage 3: 80, stage 4: 150
+    // 처형으로 인한 사망은 운치굴에 고기로 생성 → 직접 집 비축에 저장
+    //   (운치는 별개로 계속 운치굴에 남음)
+    const isExecution = ['노예처형', '굶주려 잡아먹힘', '부모의 처형'].includes(reason);
     const totalFood = [0, 50, 50, 80, 150][this.stage] ?? 30;
-    let remaining = totalFood;
-    while (remaining > 0) {
-      const it = game.spawnItem('food_good',
-        this.x + Utils.random(-35, 35),
-        this.y + Utils.random(-35, 35));
-      // food_good 의 기본 foodVal 은 [10,15] — 평균 12 정도. 남은 양에 맞춰 캡
-      if (it && it.foodValue > remaining) it.foodValue = remaining;
-      remaining -= (it?.foodValue ?? 12);
+
+    if (isExecution) {
+      // 주인/부모의 집을 찾아 자동 비축
+      let masterHouse = null;
+      if (this.slaveOf) {
+        const m = game.getEntity(this.slaveOf);
+        masterHouse = m ? game.getEntity(m.houseId) : null;
+      }
+      if (!masterHouse && this.parentId) {
+        const p = game.getEntity(this.parentId);
+        masterHouse = p ? game.getEntity(p.houseId) : null;
+      }
+      if (masterHouse) {
+        masterHouse.foodReserves += totalFood;
+        game.addParticle(masterHouse.unciX, masterHouse.unciY,
+          `🥩 고기 +${totalFood}`, '#aa3333', 2400);
+        if (game.logEvent) game.logEvent(`🥩 운치굴에서 고기 ${totalFood} 생성 (${reason})`, '#cc6666', { x: masterHouse.unciX, y: masterHouse.unciY });
+      } else {
+        // 주인 집을 못 찾으면 필드에 그냥 drop
+        let remaining = totalFood;
+        while (remaining > 0) {
+          const it = game.spawnItem('food_good', this.x + Utils.random(-35, 35), this.y + Utils.random(-35, 35));
+          if (it && it.foodValue > remaining) it.foodValue = remaining;
+          remaining -= (it?.foodValue ?? 12);
+        }
+      }
+    } else {
+      // 일반 사망: 필드에 음식 drop
+      let remaining = totalFood;
+      while (remaining > 0) {
+        const it = game.spawnItem('food_good', this.x + Utils.random(-35, 35), this.y + Utils.random(-35, 35));
+        if (it && it.foodValue > remaining) it.foodValue = remaining;
+        remaining -= (it?.foodValue ?? 12);
+      }
     }
     // Return carried items to ground
     for (const item of this.carriedItems) {
@@ -796,15 +1011,42 @@ class Siljangsuk {
       if ((this.generation ?? 0) >= CONFIG.MAX_GENERATION) {
         this.familyId   = this.id;
         this.generation = 0;
-        if (game.logEvent) game.logEvent(`🆕 ${this.label} 4대 분파 — 새 조직 창설`, '#aaffee');
+        if (game.logEvent) game.logEvent(`🆕 ${this.label} 4대 분파 — 새 조직 창설`, '#aaffee', { x: this.x, y: this.y });
       }
       game.addParticle(this.x, this.y - 32, '성체 됨! 🌿', '#aaffaa', 3000);
-      if (game.logEvent) game.logEvent(`🌿 ${this.label} 성체로 진화`, '#aaffaa');
+      if (game.logEvent) game.logEvent(`🌿 ${this.label} 성체로 진화`, '#aaffaa', { x: this.x, y: this.y });
     } else {
       game.addParticle(this.x, this.y - 24, `${label} 성장! ▲`, '#aaffee', 2000);
       if (game.logEvent && this.stage >= 3) {
-        game.logEvent(`▲ ${this.label} ${label}(으)로 성장`, '#aaffee');
+        game.logEvent(`▲ ${this.label} ${label}(으)로 성장`, '#aaffee', { x: this.x, y: this.y });
       }
+    }
+  }
+
+  // 임신 시작 처리 — 부모 집에서 자식이 임신하면 즉시 분가
+  _onPregnant(game) {
+    this.pregnant       = true;
+    this.pregnancyTimer = 0;
+    game.addParticle(this.x, this.y - 24, '임신!', '#ffaaff', 2000);
+
+    // 본인이 거주하는 집이 본인 소유가 아니면 즉시 분가
+    const h = this.house;
+    if (h && h.ownerId !== this.id) {
+      // 폐지 5장 / 음식 30 보너스 수령
+      let dowryPaper = 0, dowryFood = 0;
+      if ((h.paperStock ?? 0) >= 10) {
+        dowryPaper = 5; h.paperStock -= 5; this.paperCount = (this.paperCount ?? 0) + 5;
+      }
+      if (h.foodReserves >= 30) {
+        dowryFood = 30; h.foodReserves -= 30;
+      }
+      // 분가 — 집에서 나오기, 하루 포만 100% 유지
+      this.houseId               = null;
+      this.satiation             = this.maxSat;
+      this.satiationFreezeTimer  = 90;
+      // 분가 직후 자기 집 짓도록 paperCount 보너스
+      game.addParticle(this.x, this.y - 36, '임신 → 즉시 분가!', '#aaccff', 2500);
+      if (game.logEvent) game.logEvent(`🏃 ${this.label} 임신으로 즉시 분가 (📄${dowryPaper} 🍱${dowryFood})`, '#aaccff', { x: this.x, y: this.y });
     }
   }
 
@@ -817,7 +1059,7 @@ class Siljangsuk {
     const taegyoBonus     = this._taegyoSessions;
     this._taegyoSessions  = 0;
     if (taegyoBonus > 0 && game.logEvent) {
-      game.logEvent(`✨ 태교 ${taegyoBonus}회 효과 — 개념 비율 증가`, '#ffaaff');
+      game.logEvent(`✨ 태교 ${taegyoBonus}회 효과 — 개념 비율 증가`, '#ffaaff', { x: this.x, y: this.y });
     }
 
     const hap = this.happiness;
@@ -847,6 +1089,8 @@ class Siljangsuk {
 
       const child = game.spawnSiljangsuk(bx, by, stage, this.id, personality, this.familyId);
       child.houseId    = this.houseId;
+      // 노예 부모의 자식은 자동으로 노예 신분 (운치굴 출생)
+      if (this.slaveOf) child.slaveOf = this.slaveOf;
       child.serialNo   = Game.nextSerialNo++;
       this.birthsGiven++;
       child.birthOrder = this.birthsGiven;
@@ -866,7 +1110,7 @@ class Siljangsuk {
     }
 
     game.addParticle(this.x, this.y - 36, `뎃데로게~! ${count}마리`, '#ffccff', 3000);
-    if (game.logEvent) game.logEvent(`👶 ${this.label}가 ${count}마리 출산!`, '#ffaaff');
+    if (game.logEvent) game.logEvent(`👶 ${this.label}가 ${count}마리 출산!`, '#ffaaff', { x: this.x, y: this.y });
     this._say('birth');
 
     // 집 정원 9마리 제한 — 초과 시 성체 자식 강제 독립 or 새 새끼 노예
@@ -892,7 +1136,7 @@ class Siljangsuk {
         adultChild.satiation             = adultChild.maxSat;
         adultChild.satiationFreezeTimer  = 90; // 하루 동안 포만 유지
         game.addParticle(adultChild.x, adultChild.y - 30, '강제 분가!', '#ffaa44', 2500);
-        if (game.logEvent) game.logEvent(`🏃 ${adultChild.label} 정원초과로 강제 독립 (하루 포만 보장)`, '#ffaa44');
+        if (game.logEvent) game.logEvent(`🏃 ${adultChild.label} 정원초과로 강제 독립 (하루 포만 보장)`, '#ffaa44', { x: adultChild.x, y: adultChild.y });
         continue;
       }
 
@@ -902,7 +1146,7 @@ class Siljangsuk {
       if (newSlave) {
         newSlave.slaveOf = h.ownerId || this.id;
         game.addParticle(newSlave.x, newSlave.y - 22, '노예 책정!', '#cc6666', 2200);
-        if (game.logEvent) game.logEvent(`⚠️ ${newSlave.label} 정원초과로 노예 책정`, '#cc6666');
+        if (game.logEvent) game.logEvent(`⚠️ ${newSlave.label} 정원초과로 노예 책정`, '#cc6666', { x: newSlave.x, y: newSlave.y });
         continue;
       }
       break;
@@ -917,16 +1161,27 @@ class Siljangsuk {
       return;
     }
 
-    // ── 수풀에 숨었는지 매 틱 갱신 ─────────────────────
+    // ── 수풀/나무에 숨었는지 매 틱 갱신 (새끼만) ─────────
     const wasHidden = this.hidden;
     this.hidden = false;
     let hidingBush = null;
     if (this.stage < 4 && (this.fleeing || this.state === 'fleeing')) {
+      // 1) 수풀 (smalltree) — 가까운 거리
       for (const b of (game.world?.bushes || [])) {
         if (Utils.distance(this, b) < b.r + 4) {
           this.hidden = true;
-          hidingBush = b;
+          hidingBush = { x: b.x, y: b.y, r: b.r };
           break;
+        }
+      }
+      // 2) 나무 (tree) — 캐노피 안에 들어가면 숨음
+      if (!this.hidden) {
+        for (const t of (game.world?.trees || [])) {
+          if (Utils.distance(this, t) < t.r) {
+            this.hidden = true;
+            hidingBush = { x: t.x, y: t.y, r: t.r };
+            break;
+          }
         }
       }
     }
@@ -947,7 +1202,7 @@ class Siljangsuk {
         ? game.world.findNearestWater(this.x, this.y) : null;
       if (w) {
         const d = Utils.distance(this, w);
-        if (d < (w.r ?? 30)) {
+        if (d < (w.r ?? 30) + this.size) {        // 가장자리만 닿아도 OK
           this.lastWaterDayKey = game.dayIndex;
           this.happiness = Math.min(100, this.happiness + 4);
           this.satiation = Math.min(this.maxSat, this.satiation + 8);
@@ -967,6 +1222,85 @@ class Siljangsuk {
           }
           this._setState('seeking_water');
           this._setTarget(w.x, w.y);
+          return;
+        }
+      }
+    }
+
+    // ── 운치 섭취 의도 지속 — 한번 시작하면 가득 찰 때까지 무조건 유지 ──
+    if (this._eatingUnci) {
+      if (this.isFull) {
+        this._eatingUnci = false;       // 가득 차면 해제
+      } else {
+        const unciHouse = this._findNearestUnci(game);
+        if (!unciHouse) {
+          this._eatingUnci = false;     // 운치 고갈 → 해제
+        } else {
+          this._setState('eating_unci');
+          this._setTarget(unciHouse.unciX, unciHouse.unciY, true); // force lock
+          if (Utils.distance(this, { x: unciHouse.unciX, y: unciHouse.unciY }) < CONFIG.UNCI_RADIUS) {
+            const eat = Math.min(unciHouse.unciAmount, 6 * dt);
+            unciHouse.unciAmount = Math.max(0, unciHouse.unciAmount - eat);
+            this.satiation = Math.min(this.maxSat, this.satiation + eat * 1.5);
+            this.happiness = Math.max(0, this.happiness - 2.0 * dt);   // 큰 폭 행복 감소
+            this._eatParticleCd -= dt;
+            if (this._eatParticleCd <= 0) {
+              this._eatParticleCd = 1.5;
+              game.addParticle(this.x, this.y - 14, '운치 섭취…', '#aa7700', 900);
+            }
+          }
+          return;
+        }
+      }
+    }
+
+    // ── 술래잡기 놀이 진행 ─────────────────────────
+    if (this._tagPlay) {
+      const group = (this._tagPlay.group || [])
+        .map(id => game.getEntity(id))
+        .filter(m => m && !m.dead && m.id !== this.id);
+      if (group.length === 0) { this._tagPlay = null; }
+      else if (this._tagPlay.role === 'tagger') {
+        // 술래는 startDelay 동안 그 자리에서 두리번거림 (도주자가 먼저 달리도록)
+        if (this._tagPlay.startDelay > 0) {
+          this._setState('playing');
+          this._setTarget(this.x, this.y, true);
+          if (!this._tagPlay._readyParticle) {
+            this._tagPlay._readyParticle = true;
+            game.addParticle(this.x, this.y - 18, '준비…', '#ffe066', 600);
+          }
+          return;
+        }
+        let best = null, bd = Infinity;
+        for (const m of group) {
+          const d = Utils.distance(this, m);
+          if (d < bd) { bd = d; best = m; }
+        }
+        if (best) {
+          this._setState('playing');
+          this._setTarget(best.x, best.y, true);
+          if (bd < 18) {
+            // 역할 swap — 잡힌 자는 술래가 되고 0.5초 대기
+            this._tagPlay.role = 'runner';
+            this._tagPlay.startDelay = 0;
+            if (best._tagPlay) {
+              best._tagPlay.role = 'tagger';
+              best._tagPlay.startDelay = 0.5;
+              best._tagPlay.swapAt = 1.7;
+              best._tagPlay._readyParticle = false;
+            }
+            game.addParticle(best.x, best.y - 16, '잡았다!', '#ffccaa', 1200);
+          }
+          return;
+        }
+      } else {
+        // runner — 술래로부터 도주
+        const tagger = group.find(m => m._tagPlay && m._tagPlay.role === 'tagger');
+        if (tagger) {
+          this._setState('playing');
+          const dx = this.x - tagger.x, dy = this.y - tagger.y;
+          const n  = Utils.normalize(dx, dy);
+          this._setTarget(this.x + n.x * 60, this.y + n.y * 60, true);
           return;
         }
       }
@@ -994,12 +1328,23 @@ class Siljangsuk {
           // 접촉 후엔 잠복 해제 (다시 추격)
           this._stakeoutBush = null;
           this._stakeoutTarget = null;
+          this._stakeoutTarget2 = null;
+          this._stakeoutPickT = 0;
         } else {
-          // 수풀 주변을 빙빙 돌면서 탐색
-          const ang = (this.animTimer * 0.5) % (Math.PI * 2);
+          // 수풀/나무 내부까지 랜덤 위치로 진입하면서 탐색
+          //   매 1.5초마다 새 랜덤 표적 (수풀 안쪽 0 ~ r 거리)
+          this._stakeoutPickT = (this._stakeoutPickT ?? 0) - dt;
+          if (this._stakeoutPickT <= 0 || !this._stakeoutTarget2) {
+            this._stakeoutPickT = 1.5;
+            const ang = Math.random() * Math.PI * 2;
+            const radius = Math.random() * sb.r * 0.9;       // 내부 어디든
+            this._stakeoutTarget2 = {
+              x: sb.x + Math.cos(ang) * radius,
+              y: sb.y + Math.sin(ang) * radius,
+            };
+          }
           this._setState('stakeout');
-          this._setTarget(sb.x + Math.cos(ang) * (sb.r + 18),
-                          sb.y + Math.sin(ang) * (sb.r + 18));
+          this._setTarget(this._stakeoutTarget2.x, this._stakeoutTarget2.y);
           return;
         }
       }
@@ -1025,8 +1370,18 @@ class Siljangsuk {
       if (!atk) atk = (game.humans || []).find(h => h.id === this.lastAttackerId && !h.done) ?? null;
 
       if (atk) {
-        const atkStage    = atk.stage ?? 5; // 인간은 5로 취급(강함)
-        // 불리 조건: 더 높은 단계 + HP 절반 미만
+        const atkStage    = atk.stage ?? 5;
+        const isHuman     = (atk.type === 1 || atk.type === 2 || atk.type === 4);
+        // 한밤중 인간 공격 → 무조건 도주 + 특수 대사
+        if (game.isNight && isHuman) {
+          this._speech = (this.stage === 4) ? '자들은 도망치는데스!!' : '일가실각인테챠아앗!';
+          this._speechTimer = 1.8;
+          const h = this.house;
+          const fx = h ? h.cx : atk.x, fy = h ? h.cy : atk.y;
+          this._fleeFrom_raw(fx, fy);
+          this.fleeTimer = 60;
+          return;
+        }
         const disadvantaged = atkStage > this.stage && this.hp < this.maxHp * 0.5;
         if (!disadvantaged) {
           // 반격
@@ -1057,12 +1412,110 @@ class Siljangsuk {
       }
     }
 
-    // HP < 50% + 주변 위협 감지 → 도주 (lastAttackerId 없을 때 일반 위협)
+    // HP < 50% + 주변 위협 감지 → 도주 (객체 생존 최우선)
     if (this.hp < this.maxHp * 0.5 && this.stage >= 2) {
       const thr = this._findNearestThreat(game);
       if (thr) {
         if (this.isChild) { this._fleeToHouse(game); }
         else { this._fleeFrom_raw(thr.x, thr.y); }
+        return;
+      }
+    }
+
+    // ── 전투/전쟁: 객체 생존 다음, 모든 행동보다 우선 ─────────
+    if (this.stage === 4 && (this.raidTarget !== null || this.defendAgainst !== null)) {
+      if (this._doWarBehavior(game)) return;
+    }
+
+    // ── 탈주 독라(fugitive) 새끼 — 낮엔 수풀에 숨고, 밤에 활동 ─────
+    if (this.fugitive && this.stage < 4) {
+      if (!game.isNight) {
+        // 가장 가까운 수풀로 숨기
+        let bestBush = null, bd = Infinity;
+        for (const b of (game.world?.bushes || [])) {
+          const d = Utils.distance(this, b);
+          if (d < bd) { bd = d; bestBush = b; }
+        }
+        if (bestBush) {
+          this._setState('fleeing');
+          this._setTarget(bestBush.x, bestBush.y);
+          this.fleeing = true; this.fleeTimer = 1;
+          return;
+        }
+      } else {
+        // 밤: 자유로운 활동 — 바닥 음식/운치 우선 섭취 후 wander
+        // 바닥 음식
+        const food = game.findNearestItem?.(this.x, this.y, 400, i => i.isFood(), this);
+        if (food) {
+          this._setTarget(food.x, food.y, true);
+          if (Utils.distance(this, food) < 14) this._pickUp(food, game);
+          return;
+        }
+        // 바닥 운치
+        if (game.floorUnci && game.floorUnci.length > 0) {
+          let best = null, bd = Infinity;
+          for (const u of game.floorUnci) {
+            const d = Utils.distance(this, u);
+            if (d < bd) { bd = d; best = u; }
+          }
+          if (best) {
+            this._setTarget(best.x, best.y, true);
+            if (bd < 20) {
+              this.satiation = Math.min(this.maxSat, this.satiation + best.amount * 0.6);
+              best.amount = 0; best.life = 0;
+            }
+            return;
+          }
+        }
+        // 그냥 돌아다님
+        this.wanderTimer -= dt;
+        if (this.wanderTimer <= 0) {
+          this.wanderTimer = Utils.random(2, 5);
+          this._setTarget(this.x + Utils.random(-150, 150), this.y + Utils.random(-150, 150));
+        }
+        return;
+      }
+    }
+
+    // ── 일반인/애호파 발견 → 텟츙♥ (확률) / 개념은 인간 회피 ─────
+    this._techunCD = (this._techunCD ?? 0) - dt;
+    const lovable = game.findNearestHuman?.(this.x, this.y, 200, h =>
+      h.type === 1 || h.type === 4);
+    if (this._techunCD <= 0 && lovable && !this.slaveOf) {
+      this._techunCD = 12;
+      let chance = 0;
+      if (this.personality === CONFIG.PERSONALITY_BUNCHUNG) chance = 0.5;
+      else if (this.personality === CONFIG.PERSONALITY_NORMAL) chance = 0.25;
+      if (Math.random() < chance) {
+        this._speech = '텟츙♥';
+        this._speechTimer = 1.8;
+        game.addParticle(this.x, this.y - 22, '❤', '#ff66aa', 1500);
+        game.addParticle(this.x + 10, this.y - 16, '❤', '#ff66aa', 1500);
+      }
+    }
+    // 개념은 인간을 가급적 피해다님 (단, 떨어진 음식은 주우러)
+    if (this.personality === CONFIG.PERSONALITY_CONCEPT && !this.slaveOf) {
+      const anyHuman = game.findNearestHuman?.(this.x, this.y, 180, h =>
+        h.type === 0 || h.type === 1 || h.type === 2 || h.type === 4);
+      if (anyHuman) {
+        // 떨어진 음식이 가까이 있으면 그게 우선
+        const food = game.findNearestItem?.(this.x, this.y, 250, i => i.isFood(), this);
+        const foodCloser = food && Utils.distance(this, food) < Utils.distance(this, anyHuman) * 0.9;
+        if (!foodCloser) {
+          this._fleeFrom_raw(anyHuman.x, anyHuman.y);
+          return;
+        }
+      }
+    }
+
+    // ── 콘페이토 발견 → 생존을 제외한 모든 우선순위 무시하고 획득 ──
+    if (!this.slaveOf) {
+      const confetto = game.findNearestItem(this.x, this.y, 900, i => i.type === 'confetto', this);
+      if (confetto) {
+        this._claimItem(confetto);
+        this._setState('seeking_confetto');
+        this._setTarget(confetto.x, confetto.y, true);
+        if (Utils.distance(this, confetto) < 14) this._pickUp(confetto, game);
         return;
       }
     }
@@ -1145,22 +1598,28 @@ class Siljangsuk {
           }
         }
 
-        // 2-b. 운치굴에서 운치 먹기 — 포만 가득 찰 때까지 (행복 감소)
+        // 2-b. 본인 집의 독라가 있으면 먼저 처형해서 먹음 (운치보다 우선)
+        const myHouse = this.house;
+        if (myHouse && this.stage === 4) {
+          const mySlave = game.siljangsukList.find(s =>
+            !s.dead && s.slaveOf === this.id && s.stage <= 2);
+          if (mySlave) {
+            mySlave.markedForExecution = true;
+            this._setState('attacking');
+            this._setTarget(mySlave.x, mySlave.y, true);
+            if (Utils.distance(this, mySlave) < 30 && this.attackCooldown <= 0) {
+              mySlave._die(game, '노예처형');
+              this.satiation = Math.min(this.maxSat, this.satiation + 50);
+              this.attackCooldown = 1.5;
+            }
+            return;
+          }
+        }
+
+        // 2-c. 운치 — 최후 수단 (독라가 없을 때만)
         const unciHouse = this._findNearestUnci(game);
         if (unciHouse && !this.isFull) {
-          this._setState('eating_unci');
-          this._setTarget(unciHouse.unciX, unciHouse.unciY);
-          if (Utils.distance(this, { x: unciHouse.unciX, y: unciHouse.unciY }) < CONFIG.UNCI_RADIUS) {
-            const eat = Math.min(unciHouse.unciAmount, 6 * dt);
-            unciHouse.unciAmount = Math.max(0, unciHouse.unciAmount - eat);
-            this.satiation = Math.min(this.maxSat, this.satiation + eat * 1.5);
-            this.happiness = Math.max(0, this.happiness - 0.4 * dt);
-            this._eatParticleCd -= dt;
-            if (this._eatParticleCd <= 0) {
-              this._eatParticleCd = 1.5;
-              game.addParticle(this.x, this.y - 14, '운치 섭취…', '#aa7700', 900);
-            }
-          }
+          this._eatingUnci = true;
           return;
         }
 
@@ -1208,20 +1667,25 @@ class Siljangsuk {
       }
     }
 
-    // Night → sleep (전쟁 중이면 귀가 안 함, 노숙 시 체력 회복 X)
+    // Night → sleep (전쟁 중이면 귀가 안 함)
     if (game.isNight && !atWar) {
       const h = this.house;
-      if (h && h.isNear(this.x, this.y, 20)) {
+      // 집이 있고 가까이 있으면 자기 집에서 취침
+      if (h && h.isNear(this.x, this.y, 40)) {
         if (this.state !== 'sleeping' && Math.random() < 0.5) this._say('sleep');
         this._setState('sleeping');
         return;
-      } else {
+      }
+      // 집이 있지만 멀리 있으면 귀가 (이동거리 300 이내일 때만)
+      if (h && Utils.distance(this, { x: h.cx, y: h.cy }) < 300) {
         this._setState('going_home');
-        const tx = h ? h.cx : this.x;
-        const ty = h ? h.cy : this.y;
-        this._setTarget(tx, ty);
+        this._setTarget(h.cx, h.cy);
         return;
       }
+      // 집 없음 또는 너무 멀음 → 그 자리 노숙 (수면중, 회복 X)
+      this._setState('sleeping');
+      this._setTarget(this.x, this.y, true);
+      return;
     }
 
     // Happy circuit – do nothing
@@ -1261,7 +1725,7 @@ class Siljangsuk {
           this.houseId = vac.id;
           if (!vac.ownerId) vac.ownerId = this.id;
           h = vac;
-          if (game.logEvent) game.logEvent(`🏠 ${this.label}가 빈집으로 이주`, '#aaccff');
+          if (game.logEvent) game.logEvent(`🏠 ${this.label}가 빈집으로 이주`, '#aaccff', { x: this.x, y: this.y });
         } else {
           this._setState('going_home');
           this._setTarget(vac.cx, vac.cy);
@@ -1380,6 +1844,7 @@ class Siljangsuk {
       return;
     }
 
+    if (this._cleanupFloorUnci(game, h)) return;
     this._wander(dt, game, 90);
   }
 
@@ -1395,7 +1860,7 @@ class Siljangsuk {
           this.houseId = vac.id;
           if (!vac.ownerId) vac.ownerId = this.id;
           h = vac;
-          if (game.logEvent) game.logEvent(`🏠 ${this.label}가 빈집으로 이주`, '#aaccff');
+          if (game.logEvent) game.logEvent(`🏠 ${this.label}가 빈집으로 이주`, '#aaccff', { x: this.x, y: this.y });
         } else {
           this._setState('going_home');
           this._setTarget(vac.cx, vac.cy);
@@ -1431,13 +1896,33 @@ class Siljangsuk {
             players = [this, friend];
           }
           const N = Math.max(2, players.length);
-          for (let i = 0; i < players.length; i++) {
-            const p = players[i];
-            p.happiness    = Math.min(100, p.happiness + CONFIG.HAPPINESS_PLAY_GAIN);
-            p.hp           = Math.max(1, p.hp - Utils.random(0.5, 2));
-            p.playCooldown = 25;
-            const a = (i / N) * Math.PI * 2;
-            p._orbit = { cx: midX, cy: midY, angle: a, radius: 24, ttl: 2.8, speed: 4 };
+          // 50% 확률로 술래잡기 놀이
+          const tagMode = players.length >= 2 && Math.random() < 0.5;
+          if (tagMode) {
+            const taggerIdx = Math.floor(Math.random() * players.length);
+            for (let i = 0; i < players.length; i++) {
+              const p = players[i];
+              p.happiness    = Math.min(100, p.happiness + CONFIG.HAPPINESS_PLAY_GAIN);
+              p.hp           = Math.max(1, p.hp - Utils.random(0.3, 1.5));
+              p.playCooldown = 25;
+              const isTagger = (i === taggerIdx);
+              p._tagPlay = {
+                role: isTagger ? 'tagger' : 'runner',
+                startDelay: isTagger ? 0.5 : 0,  // 술래는 0.5초 대기 후 추격
+                swapAt: 1.7, ttl: 5, group: players.map(x => x.id),
+              };
+              p._orbit = null;
+            }
+            game.addParticle(midX, midY - 22, `🏃 술래잡기! (${players.length}명)`, '#ffccaa', 1800);
+          } else {
+            for (let i = 0; i < players.length; i++) {
+              const p = players[i];
+              p.happiness    = Math.min(100, p.happiness + CONFIG.HAPPINESS_PLAY_GAIN);
+              p.hp           = Math.max(1, p.hp - Utils.random(0.5, 2));
+              p.playCooldown = 25;
+              const a = (i / N) * Math.PI * 2;
+              p._orbit = { cx: midX, cy: midY, angle: a, radius: 24, ttl: 2.8, speed: 4 };
+            }
           }
           game.addParticle(midX, midY - 20, `😆 놀이!(${players.length}명)`, '#ffccaa', 1800);
           if (Math.random() < 0.4) this._say('play');
@@ -1490,6 +1975,7 @@ class Siljangsuk {
       return;
     }
 
+    if (this._cleanupFloorUnci(game, h)) return;
     this._wander(dt, game, 140);
   }
 
@@ -1504,8 +1990,9 @@ class Siljangsuk {
       this._setTarget(markedSlave.x, markedSlave.y);
       if (Utils.distance(this, markedSlave) < 30 && this.attackCooldown <= 0) {
         markedSlave._die(game, '노예처형');
+        this.satiation = Math.min(this.maxSat, this.satiation + 50); // 포만 +50
         this.attackCooldown = 1.5;
-        if (game.logEvent) game.logEvent(`⛓ ${this.label}가 노예 ${markedSlave.label} 처형`, '#cc6666');
+        if (game.logEvent) game.logEvent(`⛓ ${this.label}가 노예 ${markedSlave.label} 처형`, '#cc6666', { x: this.x, y: this.y });
       }
       return;
     }
@@ -1515,8 +2002,12 @@ class Siljangsuk {
       if (Math.random() < 0.003) this._say('evening');
     }
 
-    // ── 태교: 임신 + 비축 식량 충분 + 자식 있음 → 자식과 놀이 ────────────
-    if (this.pregnant && h && h.foodReserves > 30) {
+    // ── 태교/자식과의 놀이: 3일치 음식이 모여야 가능
+    //   가족 인원 × 일일소비량(≈8) × 3일 — 그 미만이면 놀지 않고 먹이 수집에 전념
+    const familyHere = h ? game.siljangsukList.filter(s =>
+      !s.dead && s.houseId === h.id && !s.slaveOf).length : 1;
+    const needReserve = familyHere * 8 * 3;
+    if (this.pregnant && h && h.foodReserves >= needReserve) {
       const child = game.siljangsukList.find(s =>
         !s.dead && s.parentId === this.id && s.stage < 4 && !s.slaveOf
         && Utils.distance(this, s) < 200);
@@ -1554,7 +2045,7 @@ class Siljangsuk {
           this.houseId   = vacant.id;
           h = vacant;
           game.addParticle(vacant.cx, vacant.cy - 24, '빈집 점유!', '#aaccff', 2200);
-          if (game.logEvent) game.logEvent(`🏠 ${this.label}가 빈집을 점유`, '#aaccff');
+          if (game.logEvent) game.logEvent(`🏠 ${this.label}가 빈집을 점유`, '#aaccff', { x: this.x, y: this.y });
         } else {
           this._setState('going_home');
           this._setTarget(vacant.cx, vacant.cy);
@@ -1579,11 +2070,11 @@ class Siljangsuk {
           enemy.counterAttackTimer = 5;
           this.attackCooldown = 1.5;
           this.happiness = Math.min(100, this.happiness + CONFIG.HAPPINESS_COMBAT_GAIN);
-          game.addParticle(enemy.x, enemy.y - 14, `-${dmg}(습격)`, '#ff2222', 1000);
+          game.addParticle(enemy.x, enemy.y - 14, `-${dmg}(습격-DEPRECATED)`, '#ff2222', 1000);
         }
         return;
       }
-      // 적 집 공격
+      // 적 집 공격 (DEPRECATED — 위 _doWarBehavior에서 처리)
       for (const eh of game.houses) {
         const owner = game.getEntity(eh.ownerId);
         if (owner && owner.familyId === this.raidTarget && !eh.vacant) {
@@ -1598,6 +2089,9 @@ class Siljangsuk {
         }
       }
     }
+
+    // ── 구더기 거래 시도 (성체간) ──
+    if (this._tryTrade(game)) return;
 
     // ── 개념 성향: 식량 충분하면 굶주린 타인에게 음식 나눠줌 ──
     if (this.personality === CONFIG.PERSONALITY_CONCEPT
@@ -1617,7 +2111,7 @@ class Siljangsuk {
           this.happiness = Math.min(100, this.happiness + 3);
           this.attackCooldown = 3;
           game.addParticle(hungry.x, hungry.y - 20, '🍱 음식 받음', '#aaffaa', 1800);
-          if (game.logEvent) game.logEvent(`🍱 ${this.label}(개념)이 ${hungry.label}에게 음식 나눔`, '#aaffaa');
+          if (game.logEvent) game.logEvent(`🍱 ${this.label}(개념)이 ${hungry.label}에게 음식 나눔`, '#aaffaa', { x: this.x, y: this.y });
         } else {
           this._setState('giving_food');
           this._setTarget(hungry.x, hungry.y);
@@ -1682,7 +2176,7 @@ class Siljangsuk {
           aggr.hp = 0;
           this.attackCooldown = 1.5;
           game.addParticle(aggr.x, aggr.y - 22, '⚔️ 처형!', '#ff2222', 2500);
-          if (game.logEvent) game.logEvent(`⚔️ 성체가 다툼을 일으킨 새끼를 처형함`, '#ff6666');
+          if (game.logEvent) game.logEvent(`⚔️ 성체가 다툼을 일으킨 새끼를 처형함`, '#ff6666', { x: this.x, y: this.y });
         }
         return;
       }
@@ -1784,9 +2278,12 @@ class Siljangsuk {
       return;
     }
 
-    const target = game.findNearestSiljangsuk(this.x, this.y, 220, s => {
+    // 탈주 독라 최우선 사냥 (모든 성격 공통)
+    let target = game.findNearestSiljangsuk(this.x, this.y, 350, s =>
+      !s.dead && s.fugitive && !s.hidden && s.id !== this.id);
+    if (!target) target = game.findNearestSiljangsuk(this.x, this.y, 220, s => {
       if (s.dead || s.id === this.id) return false;
-      if (s.hidden) return false; // 수풀에 숨어있으면 공격 못 함
+      if (s.hidden) return false;
       if (s.familyId === this.familyId) return false;
       if (s.personality === this.personality && this.satiation > 0) return false;
       if (this.personality === CONFIG.PERSONALITY_BUNCHUNG) return true;
@@ -1833,6 +2330,34 @@ class Siljangsuk {
 
   // ── House / Items ───────────────────────────────
   _buildHouse(game) {
+    // 이미 본인이 짓고 있는 건축 현장이 있으면 중복 건축 차단
+    if ((game.constructions || []).some(c => c.ownerId === this.id)) return;
+
+    // 후보지 평가는 한 번만 — 이후 그 위치로 이동
+    // 이미 결정된 위치가 있으면 그곳으로 이동
+    if (this._chosenBuildSpot) {
+      const sp = this._chosenBuildSpot;
+      const d = Utils.distance(this, { x: sp.x + CONFIG.HOUSE_WIDTH/2, y: sp.y + CONFIG.HOUSE_HEIGHT/2 });
+      if (d > 50) {
+        // 아직 도착 안 함 — 그 위치로 이동
+        this._setState('going_to_build');
+        this._setTarget(sp.x + CONFIG.HOUSE_WIDTH/2, sp.y + CONFIG.HOUSE_HEIGHT/2, true);
+        return;
+      }
+      // 도착함 — 건축 개시
+      game.constructions = game.constructions ?? [];
+      game.constructions.push({
+        x: sp.x, y: sp.y, w: CONFIG.HOUSE_WIDTH, h: CONFIG.HOUSE_HEIGHT,
+        ownerId: this.id, progress: 0, duration: CONFIG.BUILD_DURATION,
+      });
+      this.paperCount = 0;
+      this.carriedItems = this.carriedItems.filter(i => !i.isPaper());
+      this._chosenBuildSpot = null;
+      game.addParticle(sp.x + CONFIG.HOUSE_WIDTH/2, sp.y - 8, '🔨 건축 시작', '#ffe066', 2000);
+      if (game.logEvent) game.logEvent(`🔨 ${this.label}가 집을 짓기 시작`, '#ffcc66', { x: this.x, y: this.y });
+      return;
+    }
+
     // 후보지: 본인 근처(가까운 위치 선호) 20개 + 월드 랜덤 10개
     const candidates = [];
     for (let i = 0; i < 20; i++) {
@@ -1852,16 +2377,11 @@ class Siljangsuk {
     const hx = Utils.clamp(best.x, 50, CONFIG.WORLD_WIDTH  - CONFIG.HOUSE_WIDTH  - 50);
     const hy = Utils.clamp(best.y, 50, CONFIG.WORLD_HEIGHT - CONFIG.HOUSE_HEIGHT - 50);
 
-    // 건축 현장 등록 (5초 후 실제 집 생성)
-    game.constructions = game.constructions ?? [];
-    game.constructions.push({
-      x: hx, y: hy, w: CONFIG.HOUSE_WIDTH, h: CONFIG.HOUSE_HEIGHT,
-      ownerId: this.id, progress: 0, duration: CONFIG.BUILD_DURATION,
-    });
-    this.paperCount = 0;
-    this.carriedItems = this.carriedItems.filter(i => !i.isPaper());
-    game.addParticle(hx + CONFIG.HOUSE_WIDTH/2, hy - 8, '🔨 건축 시작', '#ffe066', 2000);
-    if (game.logEvent) game.logEvent(`🔨 ${this.label}가 집을 짓기 시작`, '#ffcc66');
+    // 위치만 결정 — 실제 건축은 이 위치로 이동한 뒤 다음 _buildHouse 호출 때
+    this._chosenBuildSpot = { x: hx, y: hy };
+    this._setState('going_to_build');
+    this._setTarget(hx + CONFIG.HOUSE_WIDTH/2, hy + CONFIG.HOUSE_HEIGHT/2, true);
+    game.addParticle(hx + CONFIG.HOUSE_WIDTH/2, hy - 8, '🚧 건축지 선정', '#ffcc66', 2000);
   }
 
   // 집 후보지 점수 계산
@@ -1876,8 +2396,23 @@ class Siljangsuk {
       const d = Utils.distance(spot, { x: h.cx, y: h.cy });
       if (d < minHouseDist) minHouseDist = d;
     }
-    if (minHouseDist < 250)      score -= (250 - minHouseDist) * 3;
-    else                         score += Math.min(minHouseDist, 800) * 0.25;
+    // 최소 간격 144px 미만은 매우 강한 페널티 (사실상 후보지에서 배제)
+    if (minHouseDist < CONFIG.HOUSE_MIN_SPACING) score -= 10000;
+    else if (minHouseDist < 280)                 score -= (280 - minHouseDist) * 3;
+    else                                         score += Math.min(minHouseDist, 800) * 0.25;
+
+    // 진행 중인 건축 현장과도 간격 유지
+    for (const c of (game.constructions || [])) {
+      const ccx = c.x + c.w / 2, ccy = c.y + c.h / 2;
+      if (Utils.distance(spot, { x: ccx, y: ccy }) < CONFIG.HOUSE_MIN_SPACING) score -= 10000;
+    }
+    // 쓰레기통/수돗가/분수대로부터 200px 이상
+    for (const tc of (game.trashCans || [])) {
+      if (Utils.distance(spot, tc) < CONFIG.HOUSE_FACILITY_MIN) score -= 10000;
+    }
+    for (const w of (game.world?.waterSpots || [])) {
+      if (Utils.distance(spot, w) < CONFIG.HOUSE_FACILITY_MIN) score -= 10000;
+    }
 
     // 2) 쓰레기통과의 거리 — 음식 공급원, 가까울수록 좋음 (단, 50 미만은 너무 붙음)
     let minTrashDist = Infinity;
@@ -1930,13 +2465,31 @@ class Siljangsuk {
 
   _pickUp(item, game) {
     if (item.collected) return;
-    // 다른 실장석이 노리던 음식을 가로채면 관계 -1
+    // 다른 실장석이 노리던 아이템을 가로챈 경우
     if (item.claimedBy && item.claimedBy !== this.id) {
       const claimer = game.getEntity(item.claimedBy);
       if (claimer && !claimer.dead && claimer.addRelation) {
-        claimer.addRelation(this.id, -1);
-        game.addParticle(claimer.x, claimer.y - 18, '내 거였는데…', '#ffaa44', 1500);
+        // 콘페이토는 특히 큰 분노 — 관계 -30, 분충은 즉시 공격 표식
+        if (item.type === 'confetto') {
+          claimer.addRelation(this.id, -30);
+          game.addParticle(claimer.x, claimer.y - 22, '내 콘페이토!!', '#ff2222', 2200);
+          if (claimer.personality === CONFIG.PERSONALITY_BUNCHUNG) {
+            claimer.lastAttackerId    = this.id;
+            claimer.counterAttackTimer = 8;
+          }
+        } else {
+          claimer.addRelation(this.id, -1);
+          game.addParticle(claimer.x, claimer.y - 18, '내 거였는데…', '#ffaa44', 1500);
+        }
       }
+    }
+    // 콘페이토/코로리/도돈파 — 구분 못 하고 줍는 즉시 섭취
+    if (item.type === 'confetto' || item.type === 'korori' || item.type === 'dodonpa') {
+      this._eat(item);
+      item.collected = true;
+      item.carriedBy = null;
+      item.claimedBy = null;
+      return;
     }
     item.collected  = true;
     item.carriedBy  = this.id;
@@ -1966,11 +2519,17 @@ class Siljangsuk {
         h.addFood(item.foodValue ?? 8);
         game.addParticle(this.x, this.y - 16, `🍱+${Math.floor(item.foodValue ?? 8)}`, '#ff9933', 700);
       } else if (item.isLeaf()) {
+        const leafCount = Utils.randomInt(3, 8);
         h.addLeaf();
+        h.leafStock = (h.leafStock ?? 0) + leafCount;
       } else if (item.isPaper()) {
-        h.repair(1);
+        // 폐지: HP 손상 있으면 수선(5씩), 아니면 비축
+        if (h.hp < h.maxHp) h.repairWithPaper(1);
+        h.paperStock = (h.paperStock ?? 0) + 1;
       } else if (item.isTarp()) {
-        h.maxHp   = Math.min(CONFIG.HOUSE_MAX_HP, h.maxHp + 30);
+        // 방수포: HP 손상 있으면 수선(30), 아니면 비축
+        if (h.hp < h.maxHp) h.repairWithTarp(1);
+        else h.tarpStock = (h.tarpStock ?? 0) + 1;
         h.comfort = Math.min(100, h.comfort + 20);
       } else if (item.isNail()) {
         this.nailBoost = true;
@@ -2056,20 +2615,179 @@ class Siljangsuk {
       }
     }
 
-    // 운치굴 근처에서 배회
+    // 운치굴 근처에서 자유 이동
     if (masterHouse) {
       this.wanderTimer -= dt;
       if (this.wanderTimer <= 0) {
-        this.wanderTimer = Utils.random(2, 5);
+        this.wanderTimer = Utils.random(1.5, 4);
         const angle = Math.random() * Math.PI * 2;
-        const r = Math.random() * (CONFIG.UNCI_RADIUS * 0.7);
+        const r = Math.random() * (CONFIG.UNCI_RADIUS * 0.9);  // 운치굴 내부 자유롭게
         this._setTarget(masterHouse.unciX + Math.cos(angle) * r, masterHouse.unciY + Math.sin(angle) * r);
       }
       if (Utils.distance(this, { x: masterHouse.unciX, y: masterHouse.unciY }) > CONFIG.UNCI_RADIUS) {
         this._setTarget(masterHouse.unciX, masterHouse.unciY);
       }
+      // 새끼 노예(stage 1~2): 가끔 점프, 1% 확률로 탈출
+      if (this.stage <= 2) {
+        this._jumpCD = (this._jumpCD ?? 0) - dt;
+        if (this._jumpCD <= 0) {
+          this._jumpCD = Utils.random(5, 12);
+          this._jumpAnim = 0.6;  // 점프 모션 타이머
+          if (this.stage === 1) game.addParticle(this.x, this.y - 26, '레후!', '#ffaaff', 1400);
+          else                  game.addParticle(this.x, this.y - 26, '도망갈레치!', '#ffaaff', 1400);
+          // 탈출 확률 — 낮 1%, 밤 5%
+          const escapeChance = game.isNight ? 0.05 : 0.01;
+          if (Math.random() < escapeChance) {
+            this.slaveOf = null;
+            this.fugitive = true;
+            this.houseId  = null;
+            this._setTarget(this.x + Utils.random(-300, 300), this.y + Utils.random(-300, 300), true);
+            game.addParticle(this.x, this.y - 30, '🏃 탈주!', '#ff8844', 2500);
+            if (game.logEvent) game.logEvent(`🏃 탈주 독라 ${this.label} 발생`, '#ff8844', { x: this.x, y: this.y });
+            return;
+          }
+        }
+        if (this._jumpAnim > 0) this._jumpAnim -= dt;
+      }
     }
     this._setState('idle');
+  }
+
+  // 거래 시도 — 본인 가족 구더기(stage 1) 잉여 + 식량 부족 →
+  //   다른 가족 성체에게 가서 구더기를 음식/폐지/낙엽과 교환
+  _tryTrade(game) {
+    if (this.stage !== 4 || this.slaveOf) return false;
+    this._tradeCooldown = (this._tradeCooldown ?? 0) - 0.016;
+    if (this._tradeCooldown > 0) return false;
+
+    const h = this.house;
+    if (!h) return false;
+
+    // 본인 가족 구더기(stage 1, 노예 아님) 수
+    const myMaggots = game.siljangsukList.filter(s =>
+      !s.dead && s.familyId === this.familyId && s.stage === 1 && !s.slaveOf);
+    if (myMaggots.length < 4) return false;            // 4마리 이상 있어야 거래 시도
+
+    // 식량 부족 (3일치 미만)
+    const familyHere = game.siljangsukList.filter(s =>
+      !s.dead && s.houseId === h.id && !s.slaveOf).length;
+    const needFood = familyHere * 8 * 3;
+    if (h.foodReserves >= needFood) return false;
+
+    // 매수자 후보 — 다른 가족 성체 + 충분한 식량/폐지/낙엽
+    const buyer = game.findNearestSiljangsuk(this.x, this.y, 500, s =>
+      !s.dead && s.stage === 4 && s.familyId !== this.familyId && !s.slaveOf && s.house);
+    if (!buyer) { this._tradeCooldown = 8; return false; }
+    const bh = buyer.house;
+    if (!bh) { this._tradeCooldown = 8; return false; }
+
+    // 매수자 능력 — 셋 중 하나 충족
+    const hasFood  = bh.foodReserves >= 60;
+    const hasPaper = (bh.paperStock ?? 0) >= 15;
+    const hasLeaf  = (bh.leafStock  ?? 0) >= 30;
+    if (!hasFood && !hasPaper && !hasLeaf) { this._tradeCooldown = 8; return false; }
+
+    // 거래 자리로 이동 후 처리
+    const d = Utils.distance(this, buyer);
+    if (d > 40) {
+      this._setState('trading');
+      this._setTarget(buyer.x, buyer.y);
+      return true;
+    }
+
+    // 거래 성사 — 구더기 N마리 (1~min(10, 잉여)) 매수자 가족으로 이관
+    const maggotN  = Math.min(10, Math.max(1, myMaggots.length - 3));
+    const traded   = myMaggots.slice(0, maggotN);
+    for (const m of traded) {
+      m.parentId = buyer.id;
+      m.familyId = buyer.familyId;
+      m.houseId  = bh.id;
+      m.parentLabelSnapshot = buyer.label;
+    }
+    // 보상 분배 — 우선 음식, 부족하면 폐지, 그 다음 낙엽
+    let detail = '';
+    let need = maggotN;
+    if (hasFood) {
+      const give = Math.min(need * Utils.randomInt(30, 50), bh.foodReserves);
+      bh.foodReserves -= give;
+      h.foodReserves  += give;
+      detail += `🍱+${Math.floor(give)} `;
+      need = 0;
+    }
+    if (need > 0 && hasPaper) {
+      const give = Math.min(need * 5, bh.paperStock);
+      bh.paperStock -= give; h.paperStock = (h.paperStock ?? 0) + give;
+      detail += `📄+${give} `;
+      need = 0;
+    }
+    if (need > 0 && hasLeaf) {
+      const give = Math.min(need * 15, bh.leafStock);
+      bh.leafStock -= give; h.leafStock = (h.leafStock ?? 0) + give;
+      detail += `🍂+${give} `;
+    }
+    this._tradeCooldown = 30;
+    buyer._tradeCooldown = 30;
+    this.happiness  = Math.min(100, this.happiness  + 4);
+    buyer.happiness = Math.min(100, buyer.happiness + 4);
+    this.addRelation(buyer.id, +20);
+    buyer.addRelation(this.id, +20);
+    game.addParticle((this.x + buyer.x) / 2, (this.y + buyer.y) / 2 - 24, `🤝 거래! 구더기 ${maggotN}`, '#ffe066', 2400);
+    if (game.logEvent) game.logEvent(
+      `🤝 ${this.label} ↔ ${buyer.label} 거래 (구더기 ${maggotN} → ${detail.trim()})`,
+      '#ffe066',
+      { x: (this.x + buyer.x) / 2, y: (this.y + buyer.y) / 2 });
+    return true;
+  }
+
+  // 전쟁 행동 (raidTarget 또는 defendAgainst 활성) — true 반환 시 다른 행동 차단
+  _doWarBehavior(game) {
+    const enemyFam = this.raidTarget ?? this.defendAgainst;
+    if (enemyFam === null) return false;
+
+    if (Math.random() < 0.005) this._say('raid');
+
+    // 적 성원 우선
+    const enemy = game.findNearestSiljangsuk(this.x, this.y, 2500,
+      s => !s.dead && s.familyId === enemyFam && !s.slaveOf);
+    if (enemy) {
+      const eh = this._targetInsideEnemyHouse(enemy, game);
+      if (eh) {
+        this._setState('attacking');
+        this._setTarget(eh.cx, eh.cy, true);
+        if (Utils.distance(this, { x: eh.cx, y: eh.cy }) < 55 && this.attackCooldown <= 0) {
+          eh.takeDamage(8);
+          this.attackCooldown = 1.5;
+          game.addParticle(eh.cx, eh.cy - 10, '💢 집 공격!', '#ff6644', 1200);
+          if (eh.hp <= 0) game.destroyHouse(eh);
+        }
+        return true;
+      }
+      this._setState('attacking');
+      this._setTarget(enemy.x, enemy.y, true);
+      if (Utils.distance(this, enemy) < 28 && this.attackCooldown <= 0) {
+        const dmg = (this.nailBoost ? 18 : 10) + this.stage * 2;
+        this.applyAttack(enemy, dmg, game);
+        this.attackCooldown = 1.5;
+      }
+      return true;
+    }
+
+    // 적 집 진군
+    for (const eh of game.houses) {
+      if (eh.vacant) continue;
+      const owner = game.getEntity(eh.ownerId);
+      if (owner && owner.familyId === enemyFam) {
+        this._setState('attacking');
+        this._setTarget(eh.cx, eh.cy, true);
+        if (Utils.distance(this, { x: eh.cx, y: eh.cy }) < 55 && this.attackCooldown <= 0) {
+          eh.takeDamage(8);
+          this.attackCooldown = 1.5;
+          if (eh.hp <= 0) game.destroyHouse(eh);
+        }
+        return true;
+      }
+    }
+    return false;
   }
 
   // 대상 실장석이 본인 가족이 아닌 집 내부에 있으면 그 집을 반환 (아니면 null)
@@ -2095,6 +2813,46 @@ class Siljangsuk {
       if (Utils.distance(s, item) < myD - 10) return true; // 10px 이상 가까우면 양보
     }
     return false;
+  }
+
+  // 집 주변 500px 이내 바닥 운치 청소 — true 반환 시 행동 차지
+  //   새끼들이 운치를 집 운치굴로 옮김 (낮은 우선순위)
+  _cleanupFloorUnci(game, h) {
+    if (!h || !game.floorUnci || game.floorUnci.length === 0) return false;
+    if (this.stage >= 4 || this.slaveOf) return false;
+    // 본인 집 500px 안에 있는 운치 찾기
+    let target = null, bestD = Infinity;
+    for (const u of game.floorUnci) {
+      if (u.amount <= 0) continue;
+      if (Utils.distance(u, { x: h.cx, y: h.cy }) > 500) continue;
+      const d = Utils.distance(this, u);
+      if (d < bestD) { bestD = d; target = u; }
+    }
+    if (!target) return false;
+    // 이미 운치를 들고 있으면 → 집 운치굴로 운반
+    if (this._carryingUnci > 0) {
+      const ux = h.unciX, uy = h.unciY;
+      if (Utils.distance(this, { x: ux, y: uy }) < CONFIG.UNCI_RADIUS) {
+        h.addUnci(this._carryingUnci);
+        game.addParticle(this.x, this.y - 14, '🧹', '#88aa44', 1000);
+        this._carryingUnci = 0;
+        return true;
+      }
+      this._setState('cleaning');
+      this._setTarget(ux, uy);
+      return true;
+    }
+    // 바닥 운치 픽업
+    if (bestD < 22) {
+      const pick = Math.min(target.amount, 5);
+      target.amount -= pick;
+      if (target.amount <= 0) target.life = 0;
+      this._carryingUnci = (this._carryingUnci ?? 0) + pick;
+      return true;
+    }
+    this._setState('cleaning');
+    this._setTarget(target.x, target.y);
+    return true;
   }
 
   // 빈집(vacant) 중 가장 가까운 것
@@ -2164,10 +2922,11 @@ class Siljangsuk {
     this._setTarget(
       Utils.clamp(this.x + n.x * 250, 20, CONFIG.WORLD_WIDTH  - 20),
       Utils.clamp(this.y + n.y * 250, 20, CONFIG.WORLD_HEIGHT - 20),
-      true   // force
+      true
     );
     this.fleeing   = true;
-    this.fleeTimer = 3;
+    // 성체는 밤까지 도주 상태 유지 (긴 시간), 새끼는 짧게
+    this.fleeTimer = (this.stage === 4) ? 999 : 3;
     this._setState('fleeing');
   }
 
@@ -2220,6 +2979,10 @@ class Siljangsuk {
 
     if (this.fleeing) {
       this.fleeTimer -= dt;
+      // 성체: 밤이 되면 도주 해제
+      if (this.stage === 4 && Game.isNight) {
+        this.fleeing = false; this.fleeTimer = 0;
+      }
       if (this.fleeTimer <= 0) { this.fleeing = false; }
     }
 
@@ -2230,20 +2993,54 @@ class Siljangsuk {
       const s = this.speed;
       let nx = this.x + (dx / d) * s * dt;
       let ny = this.y + (dy / d) * s * dt;
-      // 가족이 아닌 다른 집 내부로는 들어갈 수 없음 (공격용은 외벽까지만)
-      for (const h of Game.houses) {
-        if (h.vacant) continue;
-        if (h.ownerId === this.id) continue;
-        const owner = Game.getEntity(h.ownerId);
-        if (owner && owner.familyId === this.familyId) continue;
-        // 집 영역 안으로 침입 차단
-        if (nx > h.x + 2 && nx < h.x + h.w - 2 && ny > h.y + 2 && ny < h.y + h.h - 2) {
-          // 외벽에서 멈춤
-          nx = this.x; ny = this.y;
-          break;
+
+      // 막힘 누적 시간 충분히 길면 모든 충돌 통과 (게임 정지 방지)
+      const canPassThrough = this._stuckTime > CONFIG.STUCK_BYPASS_TIME
+                          && !(this.state === 'attacking');
+
+      let blocked = false;
+      if (!canPassThrough) {
+        // 1) 다른 가족의 집 — 원형 충돌 128px
+        for (const h of Game.houses) {
+          if (h.vacant) continue;
+          if (h.ownerId === this.id) continue;
+          const owner = Game.getEntity(h.ownerId);
+          if (owner && owner.familyId === this.familyId) continue;
+          if (Utils.distance({ x: nx, y: ny }, { x: h.cx, y: h.cy }) < CONFIG.HOUSE_COLLIDE_RADIUS) {
+            nx = this.x; ny = this.y; blocked = true; break;
+          }
+        }
+        // 2) 다른 가족의 운치굴 — 원형 충돌 128px (본인/가족 집의 운치굴은 통과)
+        if (!blocked) {
+          for (const h of Game.houses) {
+            if (h.ownerId === this.id) continue;
+            const owner = Game.getEntity(h.ownerId);
+            if (owner && owner.familyId === this.familyId) continue;
+            if (Utils.distance({ x: nx, y: ny }, { x: h.unciX, y: h.unciY }) < CONFIG.UNCI_COLLIDE_RADIUS) {
+              nx = this.x; ny = this.y; blocked = true; break;
+            }
+          }
         }
       }
+
+      // 막혔으면 좌/우로 우회
+      if (blocked) {
+        const perpX = -dy / d, perpY = dx / d;
+        const side  = this._sideBias ?? (Math.random() < 0.5 ? 1 : -1);
+        this._sideBias = side;
+        nx = this.x + perpX * side * s * dt;
+        ny = this.y + perpY * side * s * dt;
+      } else {
+        this._sideBias = null;
+      }
       this.x = nx; this.y = ny;
+
+      // 막힘 감지: 직전 위치 대비 거의 안 움직였으면 누적
+      const moved = Math.hypot(this.x - this._lastMoveX, this.y - this._lastMoveY);
+      if (moved < 0.5) this._stuckTime += dt;
+      else             this._stuckTime = 0;
+      this._lastMoveX = this.x;
+      this._lastMoveY = this.y;
     }
     this.x = Utils.clamp(this.x, 8, CONFIG.WORLD_WIDTH  - 8);
     this.y = Utils.clamp(this.y, 8, CONFIG.WORLD_HEIGHT - 8);
@@ -2296,19 +3093,36 @@ class Siljangsuk {
     }
     const bob = img ? 0 : Math.sin(this.animTimer * 3) * 1.5;
 
-    // 공격 애니메이션: 살짝 물러났다 부딪치는 효과 (target 방향으로 0~1 진행)
+    // 공격 애니메이션: 0~50% 뒤로 크게 물러남 → 50~100% 앞으로 돌진 (충돌 느낌)
     let atkOffsetX = 0, atkOffsetY = 0;
     if (this.attackAnimTimer > 0) {
-      const t = 1 - this.attackAnimTimer / 0.35;          // 0(처음) → 1(끝)
-      const phase = t < 0.4 ? -t * 1.2 : (t - 0.4) * 1.5; // 뒤로 → 앞으로
+      const t = 1 - this.attackAnimTimer / 0.35;
+      let phase;
+      if (t < 0.5) {
+        // 뒤로 — sin 커브로 부드럽게 -1.0 까지
+        phase = -Math.sin((t / 0.5) * Math.PI * 0.5) * 1.0;
+      } else {
+        // 앞으로 — 빠르게 +0.8 까지 돌진
+        const f = (t - 0.5) / 0.5;
+        phase = (1 - Math.pow(1 - f, 2)) * 0.8;
+      }
       const dx = this.targetX - this.x, dy = this.targetY - this.y;
       const d  = Math.sqrt(dx * dx + dy * dy) || 1;
-      atkOffsetX = (dx / d) * phase * 10;
-      atkOffsetY = (dy / d) * phase * 10;
+      atkOffsetX = (dx / d) * phase * 22;
+      atkOffsetY = (dy / d) * phase * 22;
+    }
+
+    // 점프 모션 (운치굴 새끼 노예)
+    let jumpY = 0;
+    if (this._jumpAnim && this._jumpAnim > 0) {
+      const t = 1 - this._jumpAnim / 0.6;     // 0 → 1
+      jumpY = -Math.sin(t * Math.PI) * 14;     // 위로 14px 점프
     }
 
     ctx.save();
-    ctx.translate(this.x + atkOffsetX, this.y + bob + atkOffsetY);
+    ctx.translate(this.x + atkOffsetX, this.y + bob + atkOffsetY + jumpY);
+    // 수면 중에는 옆으로 누워있는 모습 (90도 회전)
+    if (this.state === 'sleeping') ctx.rotate(Math.PI / 2);
 
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.15)';
@@ -2472,7 +3286,7 @@ class Siljangsuk {
     const stateNames = {
       idle: '한가로움', sleeping: '취침', seeking_item: '수집 중',
       seeking_food: '음식 탐색', carrying_item: '귀환 중',
-      attacking: '공격 중', fleeing: '도주 중', going_home: '귀가 중',
+      attacking: '공격 중', fleeing: '도주 중', going_home: '귀가 중', sleeping: '수면 중', cleaning: '운치 청소',
       giving_pniepnie: '프니프니 중', needs_pniepnie: '돌봄 필요', happy_circuit: '행복회로!',
       eating_unci: '운치 섭취 중', going_to_unci: '운치굴로',
     };

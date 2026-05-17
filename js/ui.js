@@ -6,8 +6,23 @@ class UI {
     this.announcements = [];
     this.showHelp = false;
     this.showTribes = false;
-    this.selectedTribeId = null;   // 영역 강조용
+    this.selectedTribeId = null;
     this.viewingUnci = false;
+
+    // 로그 패널 — 호버 시 확장, 스크롤 오프셋
+    this._logHover = false;
+    this._logScroll = 0;
+    this._logArea = null;        // { x, y, w, h }
+    this._logRowAreas = [];      // [{ x, y, w, h, pos }]
+
+    // 상태창 드래그 위치 (null이면 기본 좌측 하단)
+    this._statPanelPos = null;
+    this._statDrag = null;
+    this._statHeaderArea = null;
+
+    // 다중 선택
+    this._marquee = null;           // { x0, y0, x1, y1 } 월드좌표
+    this._selectedIds = new Set();
   }
 
   announce(text) {
@@ -29,42 +44,109 @@ class UI {
     for (const a of this.announcements) a.draw(ctx, canvas);
   }
 
-  // ── 이벤트 로그 (메뉴바 위쪽) ───────────────────────────
+  // ── 이벤트 로그 (영구 + 호버 시 확장 + 클릭 시 위치 이동) ──
   _drawEventLog(ctx, canvas, game) {
     const events = game.events || [];
-    if (events.length === 0) return;
+    if (events.length === 0) {
+      this._logArea = null;
+      this._logRowAreas = [];
+      return;
+    }
 
-    const menuTop = canvas.height - 84 - 26;   // 메뉴바 위쪽
-    const lineH   = 18;
-    const maxLines = 6;
-    const visible = events.slice(-maxLines);
+    // 호버 판정 — 메뉴바 위 + 화면 좌측 영역
+    const menuTop  = canvas.height - 84 - 26;
+    const lineH    = 18;
+    const baseW    = 360;
+    const baseLines = this._logHover ? 18 : 6;
+    const totalLines = Math.min(events.length, baseLines);
+
+    // 표시할 슬라이스 (스크롤 적용)
+    const maxScroll = Math.max(0, events.length - baseLines);
+    this._logScroll = Math.max(0, Math.min(this._logScroll, maxScroll));
+    const start = events.length - baseLines - this._logScroll;
+    const visible = events.slice(Math.max(0, start), events.length - this._logScroll);
+
+    const areaY = menuTop - totalLines * lineH + 2;
+    this._logArea = { x: 8, y: areaY, w: baseW, h: totalLines * lineH + 6 };
+    this._logRowAreas = [];
 
     ctx.save();
     ctx.font      = '12px "Noto Sans KR", sans-serif';
     ctx.textAlign = 'left';
 
+    // 호버 시 배경
+    if (this._logHover) {
+      ctx.fillStyle = 'rgba(10,8,5,0.9)';
+      ctx.strokeStyle = 'rgba(255,220,80,0.5)';
+      ctx.lineWidth = 1;
+      Utils.roundRect(ctx, this._logArea.x, this._logArea.y, this._logArea.w, this._logArea.h, 6);
+      ctx.fill(); ctx.stroke();
+    }
+
     for (let i = 0; i < visible.length; i++) {
-      const ev = visible[i];
-      const idx = visible.length - 1 - i;        // 최신 = 가장 아래
+      const ev  = visible[i];
+      const idx = visible.length - 1 - i;
       const y   = menuTop - idx * lineH;
 
-      // 페이드 (마지막 2초)
       let alpha = 1;
-      if (ev.time > 7)      alpha = Math.max(0, 1 - (ev.time - 7) / 2);
-      else if (ev.time < 0.25) alpha = ev.time / 0.25;
-      if (alpha <= 0) continue;
+      if (ev.time < 0.25) alpha = ev.time / 0.25;
 
-      const tw = ctx.measureText(ev.text).width;
-      ctx.globalAlpha = alpha * 0.75;
-      ctx.fillStyle   = 'rgba(10,8,5,0.85)';
-      Utils.roundRect(ctx, 12, y - 13, tw + 16, 18, 4);
-      ctx.fill();
+      // 위치 정보 있으면 작은 표시 + 클릭 가능 영역
+      const hasPos = !!ev.pos;
+      const rowX = 12, rowY = y - 13, rowW = baseW - 24, rowH = 16;
+      this._logRowAreas.push({ x: rowX, y: rowY, w: rowW, h: rowH, pos: ev.pos });
+
+      if (!this._logHover) {
+        const tw = ctx.measureText(ev.text).width;
+        ctx.globalAlpha = alpha * 0.75;
+        ctx.fillStyle   = 'rgba(10,8,5,0.85)';
+        Utils.roundRect(ctx, 12, y - 13, tw + 16, 18, 4);
+        ctx.fill();
+      }
 
       ctx.globalAlpha = alpha;
-      ctx.fillStyle   = ev.color;
-      ctx.fillText(ev.text, 20, y);
+      ctx.fillStyle   = hasPos ? '#ffe066' : ev.color;
+      if (hasPos) ctx.fillText('📍', 20, y);
+      ctx.fillStyle = ev.color;
+      ctx.fillText(ev.text, hasPos ? 36 : 20, y);
+    }
+    if (this._logHover && events.length > baseLines) {
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle   = '#aaa';
+      ctx.font = '10px sans-serif';
+      ctx.fillText(`◀ ▶ 휠 스크롤 · 총 ${events.length}건 (${this._logScroll}건 위)`, this._logArea.x + 8, this._logArea.y + this._logArea.h + 12);
     }
     ctx.restore();
+  }
+
+  // 마우스가 로그 위에 있는지 갱신 (game._draw 시 호출됨)
+  updateLogHover(mx, my) {
+    if (!this._logArea) { this._logHover = false; return; }
+    const a = this._logArea;
+    this._logHover = (mx >= a.x && mx <= a.x + a.w && my >= a.y && my <= a.y + a.h);
+  }
+
+  // 로그 영역 위에서 휠 스크롤
+  handleLogWheel(mx, my, deltaY) {
+    if (!this._logArea) return false;
+    const a = this._logArea;
+    if (mx >= a.x && mx <= a.x + a.w && my >= a.y && my <= a.y + a.h) {
+      this._logScroll += (deltaY > 0 ? -1 : 1); // 위로 스크롤 = 과거 보기
+      return true;
+    }
+    return false;
+  }
+
+  // 로그 클릭 → 위치로 이동 (있으면)
+  handleLogClick(sx, sy, game) {
+    if (!this._logRowAreas) return false;
+    for (const r of this._logRowAreas) {
+      if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h && r.pos) {
+        game.camera.centerOn(r.pos.x, r.pos.y);
+        return true;
+      }
+    }
+    return false;
   }
 
   // ── Day/Night bar ───────────────────────────────────────
@@ -276,7 +358,13 @@ class UI {
     if (!ent || ent.dead || ent.done) { this.selectedEntity = null; return; }
 
     const pw = 260, ph = 310;
-    const px = 14, py = canvas.height - ph - 120;
+    let px = 14, py = canvas.height - ph - 120;
+    if (this._statPanelPos) {
+      px = Utils.clamp(this._statPanelPos.x, 0, canvas.width  - pw);
+      py = Utils.clamp(this._statPanelPos.y, 0, canvas.height - ph);
+    }
+    // 헤더(상단 28px)를 드래그 핸들로 등록
+    this._statHeaderArea = { x: px, y: py, w: pw, h: 28 };
 
     ctx.fillStyle = 'rgba(10,8,5,0.82)';
     ctx.strokeStyle = 'rgba(255,220,100,0.4)';
@@ -309,7 +397,7 @@ class UI {
 
       const lines = [
         ['번호',  `#${ent.serialNo ?? '?'}`],
-        ['조직',  `${ent.familyId}` + (ent.raidTarget ? ' (습격 중)' : ent.defendAgainst ? ' (방어 중)' : '')],
+        ['조직',  `${game.tribeLabel(ent.familyId)}` + (ent.raidTarget ? ' (습격 중)' : ent.defendAgainst ? ' (방어 중)' : '')],
         ['HP',    info.hp],
         ['포만',  info.satiation],
         ['행복',  info.happiness],
@@ -385,35 +473,72 @@ class UI {
         ctx.textAlign = 'left';
         ctx.fillText('※ 1단계 새끼는 운치굴에서 운치를 식량으로 소비', px + 12, by2 + 22);
       } else {
+        // ── 1) 통계 라인 (HP, 안락함, 비축, 운치) ──
         const hpRatio = ent.hp / ent.maxHp;
         const lines = [
-          ['HP',     `${Math.floor(ent.hp)} / ${ent.maxHp}`],
-          ['안락함',  `${Math.floor(ent.comfort)}%`],
+          ['HP',       `${Math.floor(ent.hp)} / ${ent.maxHp}`],
+          ['안락함',   `${Math.floor(ent.comfort)}%`],
           ['비축 식량', `${Math.floor(ent.foodReserves)}`],
-          ['운치',   `${Math.floor(ent.unciAmount)} / 100`],
+          ['운치',     `${Math.floor(ent.unciAmount)} / 100`],
         ];
         ctx.font = '12px "Noto Sans KR", sans-serif';
+        let curY = py + 44;
         lines.forEach(([k, v], i) => {
-          const ly = py + 44 + i * 26;
+          const ly = curY + i * 22;
           ctx.fillStyle = '#aaa';
-          ctx.fillText(`${k}:`, px + 12, ly);
+          ctx.textAlign = 'left';
+          ctx.fillText(`${k}`, px + 12, ly);
           ctx.fillStyle = '#eee';
-          ctx.fillText(v, px + 80, ly);
-          if (k === 'HP') {
-            const bw = 68, bh = 5, bxb = px + 170, by2 = ly - 8;
+          ctx.fillText(v, px + 90, ly);
+          if (k === 'HP' || k === '안락함') {
+            const bw = 70, bh = 6, bxb = px + pw - bw - 12, by2 = ly - 9;
             ctx.fillStyle = '#333';
             ctx.fillRect(bxb, by2, bw, bh);
-            ctx.fillStyle = hpRatio > 0.6 ? '#44cc44' : hpRatio > 0.3 ? '#cccc44' : '#cc4444';
-            ctx.fillRect(bxb, by2, bw * hpRatio, bh);
-          }
-          if (k === '안락함') {
-            const bw = 68, bh = 5, bxb = px + 170, by2 = ly - 8;
-            ctx.fillStyle = '#333';
-            ctx.fillRect(bxb, by2, bw, bh);
-            ctx.fillStyle = '#66ccff';
-            ctx.fillRect(bxb, by2, bw * (ent.comfort / 100), bh);
+            const ratio = k === 'HP' ? hpRatio : (ent.comfort / 100);
+            ctx.fillStyle = k === 'HP'
+              ? (hpRatio > 0.6 ? '#44cc44' : hpRatio > 0.3 ? '#cccc44' : '#cc4444')
+              : '#66ccff';
+            ctx.fillRect(bxb, by2, bw * ratio, bh);
           }
         });
+        curY += lines.length * 22 + 6;
+
+        // ── 2) 구성원 / 독라 목록 (통계 아래에 별도) ──
+        const residents = game.siljangsukList.filter(s =>
+          !s.dead && s.houseId === ent.id && !s.slaveOf);
+        const slaves    = game.siljangsukList.filter(s => {
+          if (s.dead || !s.slaveOf) return false;
+          const m = game.getEntity(s.slaveOf);
+          return m && m.houseId === ent.id;
+        });
+        ctx.font = '10px "Noto Sans KR", sans-serif';
+        ctx.fillStyle = '#cccccc';
+        ctx.textAlign = 'left';
+        ctx.fillText(`구성원 ${residents.length}명`, px + 12, curY);
+        curY += 12;
+        for (const r of residents.slice(0, 5)) {
+          ctx.fillStyle = '#eee';
+          ctx.fillText(`· ${r.label}`, px + 18, curY);
+          curY += 11;
+        }
+        if (residents.length > 5) {
+          ctx.fillStyle = '#888';
+          ctx.fillText(`· …+${residents.length - 5}`, px + 18, curY);
+          curY += 11;
+        }
+        if (slaves.length) {
+          ctx.fillStyle = '#aa7777';
+          ctx.fillText(`독라 ${slaves.length}명`, px + 12, curY);
+          curY += 12;
+          for (const sl of slaves.slice(0, 3)) {
+            ctx.fillStyle = '#cc9999';
+            ctx.fillText(`· ${sl.label}`, px + 18, curY); curY += 11;
+          }
+          if (slaves.length > 3) {
+            ctx.fillStyle = '#886666';
+            ctx.fillText(`· …+${slaves.length - 3}`, px + 18, curY); curY += 11;
+          }
+        }
       }
     } else if (ent instanceof Human) {
       ctx.fillText(ent.label, px + 12, py + 22);
@@ -509,9 +634,21 @@ class UI {
       }
     }
     if (this.showTribes && this._tribeRowAreas) {
+      const now = performance.now();
       for (const r of this._tribeRowAreas) {
         if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) {
-          this.selectedTribeId = (this.selectedTribeId === r.familyId) ? null : r.familyId;
+          // 더블클릭 감지 — 같은 row 350ms 이내
+          const lastT = this._tribeRowLastClickT ?? 0;
+          const lastId = this._tribeRowLastClickId;
+          if (lastId === r.familyId && (now - lastT) < 350) {
+            const boss = game.getTribeBoss(r.familyId);
+            if (boss) game.camera.centerOn(boss.x, boss.y);
+            this._tribeRowLastClickT = 0;
+          } else {
+            this.selectedTribeId = (this.selectedTribeId === r.familyId) ? null : r.familyId;
+            this._tribeRowLastClickT = now;
+            this._tribeRowLastClickId = r.familyId;
+          }
           return true;
         }
       }
@@ -574,4 +711,7 @@ const MENU_ITEMS = [
   { label: '애호파 인간', icon: '🧑', type: 'human_1', unlock: 0 },
   { label: '학대파 인간', icon: '👊', type: 'human_2', unlock: 0 },
   { label: '고양이',      icon: '🐱', type: 'cat',     unlock: 0 },
+  { label: '일반인',      icon: '🚶', type: 'human_4', unlock: 0 },
+  { label: '제거',        icon: '❌', type: 'remove',  unlock: 0 },
+  { label: '대사 추가',   icon: '💬', type: 'add_speech', unlock: 0 },
 ];

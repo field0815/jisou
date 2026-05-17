@@ -35,6 +35,9 @@ const Game = {
   // 건축 현장 목록
   constructions: [],
 
+  // 바닥에 떨어진 운치 (집 운치굴 외, "데후웃!" 배변)
+  floorUnci: [],     // [{ x, y, amount, life }]
+
   // 식별 번호 카운터
   nextSerialNo: 1,
 
@@ -47,9 +50,18 @@ const Game = {
 
   tribeLabel(familyId) {
     if (!this.tribeNames.has(familyId)) {
-      this.tribeNames.set(familyId, this._genTribeName());
+      this.tribeNames.set(familyId, this._genTribeBase());
     }
-    return this.tribeNames.get(familyId);
+    const base = this.tribeNames.get(familyId);
+    // 베이스에 이미 접미사가 박혀있으면 (구버전 호환) 그대로
+    if (/(가족|파|부족)$/.test(base)) return base;
+    const adultCount = this.siljangsukList.filter(s =>
+      !s.dead && s.familyId === familyId && s.stage === 4 && !s.slaveOf).length;
+    let suffix;
+    if      (adultCount <= 3)  suffix = '가족';
+    else if (adultCount <= 15) suffix = '파';
+    else                       suffix = '부족';
+    return `${base} ${suffix}`;
   },
 
   // 보스 노쇠사 시 조직 분할 (최대 3개)
@@ -84,16 +96,17 @@ const Game = {
         m.generation = 0;
       }
     }
-    this.logEvent(`⚜ 보스 사망! 조직이 ${keep.length}개로 분열`, '#ffaa44');
+    this.logEvent(`⚜ 보스 사망! 조직이 ${keep.length}개로 분열`, '#ffaa44', boss ? { x: boss.x, y: boss.y } : null);
   },
 
-  _genTribeName() {
+  _genTribeBase() {
     const ADJ  = ['무서운', '잔인한', '거대한', '귀여운', '매지컬', '세레브한', '뒷마당', '새카만', '달콤한', '초록빛'];
     const NOUN = ['미도리', '테치카', '들꽃', '쓰레기장', '연못', '사거리', '프라다', '구찌', '안나수이', '에르메스', '스시', '스테이크', '콘페이토'];
     const a = ADJ [Math.floor(Math.random() * ADJ.length)];
     const n = NOUN[Math.floor(Math.random() * NOUN.length)];
-    return `${a} ${n}파`;
+    return `${a} ${n}`;
   },
+  _genTribeName() { return this._genTribeBase(); },  // 호환
   renameTribe(familyId, name) {
     if (!name) this.tribeNames.delete(familyId);
     else       this.tribeNames.set(familyId, name);
@@ -246,6 +259,10 @@ const Game = {
     for (const p of this.pollenClouds)   p.update(dt, this);
     for (const tc of this.trashCans)     tc.update(dt, this);
 
+    // 바닥 운치 수명 감소
+    for (const u of this.floorUnci) u.life -= dt;
+    this.floorUnci = this.floorUnci.filter(u => u.life > 0);
+
     // 건축 현장 진행
     for (const c of this.constructions) c.progress += dt;
     const completed = this.constructions.filter(c => c.progress >= c.duration);
@@ -257,7 +274,7 @@ const Game = {
       const owner = this.entities.get(c.ownerId);
       if (owner && !owner.dead) owner.houseId = house.id;
       this.addParticle(house.cx, house.cy - 20, '집 완성! 🏠', '#ffe066', 2200);
-      if (owner) this.logEvent(`🏠 ${owner.label}의 집 완공`, '#ffe066');
+      if (owner) this.logEvent(`🏠 ${owner.label}의 집 완공`, '#ffe066', { x: c.x + c.w/2, y: c.y + c.h/2 });
     }
 
     // 소지 아이템 위치 동기화
@@ -277,9 +294,10 @@ const Game = {
     for (const p of this.particles) p.update(dt);
     this.particles = this.particles.filter(p => !p.done);
 
-    // 이벤트 로그 시간 진행 (8초 후 사라짐)
-    for (const ev of this.events) ev.time += dt;
-    this.events = this.events.filter(ev => ev.time < 9);
+    // 이벤트 로그 시간 진행 (사라지지 않음, time은 페이드인용 - 첫 0.5초만)
+    for (const ev of this.events) {
+      if (ev.time < 1) ev.time += dt;
+    }
 
     // 습격 트리거 / 종료 체크
     this._raidCheckTimer -= dt;
@@ -342,14 +360,33 @@ const Game = {
   // ── 매일 처음 (dayIndex 갱신 시) ────────────────────
   _onNewDay(d) {
     if (d > 0 && d % CONFIG.CAT_SPAWN_DAYS === 0) {
-      const h = new Human(3); // cat
+      const h = new Human(3);
       this.humans.push(h); this.entities.set(h.id, h);
-      this.logEvent(`🐱 고양이 등장!`, '#ff9944');
+      this.logEvent(`🐱 고양이 등장!`, '#ff9944', { x: h.x, y: h.y });
     }
     if (d > 0 && d % CONFIG.ATTACKER_SPAWN_DAYS === 0) {
-      const h = new Human(2); // attacker
+      const h = new Human(2);
       this.humans.push(h); this.entities.set(h.id, h);
-      this.logEvent(`👊 학대파 등장!`, '#ff2222');
+      this.logEvent(`👊 학대파 등장!`, '#ff2222', { x: h.x, y: h.y });
+    }
+    // 필드에 떨어진 음식 3일 후 소멸 (집에 들어간 비축 식량은 별개)
+    let rotted = 0;
+    this.items = this.items.filter(it => {
+      if (it.collected) return true;
+      if (it.isFood && it.isFood() && (d - (it.spawnDayIndex ?? 0)) >= 3) {
+        this.entities.delete(it.id);
+        rotted++;
+        return false;
+      }
+      return true;
+    });
+    if (rotted > 0) this.logEvent(`🍂 오래된 음식 ${rotted}개 부패`, '#888888');
+
+    // 모든 집 HP 자동 소모 (빈집은 더 빨리)
+    for (const h of this.houses) {
+      const decay = h.vacant ? CONFIG.HOUSE_VACANT_DAILY_DECAY : CONFIG.HOUSE_DAILY_DECAY;
+      h.hp = Math.max(0, h.hp - decay);
+      if (h.hp <= 0) this.destroyHouse(h);
     }
   },
 
@@ -429,6 +466,20 @@ const Game = {
     for (const h of this.houses) {
       if (h.drawUnci) h.drawUnci(ctx, camera);
     }
+    // 바닥 운치 (데후웃! 배변)
+    for (const u of this.floorUnci) {
+      if (!camera.isVisible(u.x, u.y, 30)) continue;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, u.life / 30) * 0.7;
+      ctx.fillStyle = '#7a5020';
+      ctx.beginPath();
+      ctx.arc(u.x, u.y, 10 + Math.min(u.amount, 30) * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('💩', u.x, u.y + 4);
+      ctx.restore();
+    }
 
     // 건축 현장 — 서서히 떠오르는 집
     for (const c of this.constructions) {
@@ -469,19 +520,61 @@ const Game = {
     for (const pc of this.pollenClouds) pc.draw(ctx, camera);
     for (const p of this.particles)    p.draw(ctx, camera);
 
-    // 선택된 조직 영역 — 멤버 둘러싸는 반투명 마커
+    // 선택된 조직 영역 — 멤버 둘러싸는 반투명 마커 + 보스는 붉은 원
     const selTribe = this.ui.selectedTribeId;
     if (selTribe !== null && selTribe !== undefined) {
+      const boss = this.getTribeBoss(selTribe);
       ctx.save();
       ctx.fillStyle = 'rgba(255,220,80,0.18)';
       ctx.strokeStyle = '#ffe066';
       ctx.lineWidth = 2;
       for (const s of this.siljangsukList) {
         if (s.dead || s.familyId !== selTribe || s.slaveOf) continue;
+        if (boss && s.id === boss.id) continue;
         ctx.beginPath();
         ctx.arc(s.x, s.y, 50, 0, Math.PI * 2);
         ctx.fill(); ctx.stroke();
       }
+      if (boss) {
+        ctx.fillStyle   = 'rgba(255,40,40,0.30)';
+        ctx.strokeStyle = '#ff3030';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(boss.x, boss.y, 60, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 다중선택된 실장석 강조 (노란 링)
+    if (this.ui._selectedIds && this.ui._selectedIds.size > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#ffe066';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      for (const s of this.siljangsukList) {
+        if (s.dead || !this.ui._selectedIds.has(s.id)) continue;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size + 8, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+    // 마퀴 (드래그 중인 선택 사각형)
+    if (this._marqueeActive) {
+      const m = this._marqueeActive;
+      const x = Math.min(m.x0, m.x1), y = Math.min(m.y0, m.y1);
+      const w = Math.abs(m.x1 - m.x0), h = Math.abs(m.y1 - m.y0);
+      ctx.save();
+      ctx.fillStyle   = 'rgba(255,220,80,0.15)';
+      ctx.strokeStyle = '#ffe066';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeRect(x, y, w, h);
+      ctx.setLineDash([]);
       ctx.restore();
     }
 
@@ -606,10 +699,10 @@ const Game = {
     this.particles.push(new Particle(x, y, text, color, duration));
   },
 
-  // 중요 이벤트 로그 (하단 스크롤)
-  logEvent(text, color = '#eeeeee') {
-    this.events.push({ text, color, time: 0 });
-    if (this.events.length > 10) this.events.shift();
+  // 중요 이벤트 로그 (영구 — 마우스 호버 시 스크롤 가능, 클릭 시 위치 이동)
+  logEvent(text, color = '#eeeeee', pos = null) {
+    this.events.push({ text, color, time: 0, pos });
+    if (this.events.length > 200) this.events.shift();
   },
 
   // ── 조직(혈통) 시스템 ───────────────────────────────
@@ -685,7 +778,7 @@ const Game = {
       for (const m of members)   m.raidTarget   = target;
       for (const d of defenderMembers) d.defendAgainst = fam;
       const boss = this.getTribeBoss(fam);
-      this.logEvent(`⚔️ ${boss?.label ?? fam} 조직이 ${target} 조직 습격!`, '#ff4444');
+      this.logEvent(`⚔️ ${boss?.label ?? fam} 조직이 ${target} 조직 습격!`, '#ff4444', boss ? { x: boss.x, y: boss.y } : null);
     }
   },
 
@@ -728,7 +821,7 @@ const Game = {
     for (const e of enslave) {
       e.slaveOf = masterBoss?.id ?? null;
       e.defendAgainst = null;
-      this.logEvent(`⛓️ ${e.label} 노예로 전락`, '#cc6666');
+      this.logEvent(`⛓️ ${e.label} 노예로 전락`, '#cc6666', { x: e.x, y: e.y });
     }
     this._endRaid(atkFam, defFam, 'defender_defeated');
   },
@@ -769,7 +862,7 @@ const Game = {
     this.houses = this.houses.filter(h => h.id !== house.id);
     this.entities.delete(house.id);
     this.addParticle(house.cx, house.cy - 20, '집 파괴!', '#ff4444', 2000);
-    this.logEvent('🏚️ 집이 파괴되었다', '#ff6666');
+    this.logEvent('🏚️ 집이 파괴되었다', '#ff6666', { x: house.cx, y: house.cy });
   },
 
   findNearestItem(x, y, maxDist, filter = null, requester = null) {
@@ -858,6 +951,8 @@ const Game = {
 
     window.addEventListener('wheel', e => {
       e.preventDefault();
+      // 로그 영역 위라면 로그 스크롤
+      if (this.ui.handleLogWheel && this.ui.handleLogWheel(e.clientX, e.clientY, e.deltaY)) return;
       this.camera.onScroll(e.deltaY, e.clientX, e.clientY);
     }, { passive: false });
 
@@ -867,6 +962,29 @@ const Game = {
       const w = this.camera.screenToWorld(e.clientX, e.clientY);
       this._mouse.worldX = w.x;
       this._mouse.worldY = w.y;
+      // 로그 호버 갱신
+      if (this.ui.updateLogHover) this.ui.updateLogHover(e.clientX, e.clientY);
+      // 상태창 드래그
+      if (this.ui._statDrag) {
+        this.ui._statPanelPos = {
+          x: e.clientX - this.ui._statDrag.offX,
+          y: e.clientY - this.ui._statDrag.offY,
+        };
+      }
+      // 마퀴 다중선택 갱신
+      if (this._marqueeActive) {
+        this._marqueeActive.x1 = w.x;
+        this._marqueeActive.y1 = w.y;
+      }
+      // 그룹 드래그
+      if (this._groupDrag) {
+        const dxm = w.x - this._groupDrag.lastX;
+        const dym = w.y - this._groupDrag.lastY;
+        for (const s of this._groupDrag.entities) {
+          if (!s.dead) { s.x += dxm; s.y += dym; s.targetX = s.x; s.targetY = s.y; }
+        }
+        this._groupDrag.lastX = w.x; this._groupDrag.lastY = w.y;
+      }
       // 드래그 중: 엔티티 위치 동기화 + 속도 추적
       if (this._drag && this._drag.entity && !this._drag.entity.dead) {
         const dxm = w.x - this._drag.lastX, dym = w.y - this._drag.lastY;
@@ -883,12 +1001,43 @@ const Game = {
     // 마우스 다운: 실장석 위에서 드래그 시작
     window.addEventListener('mousedown', e => {
       if (e.button !== 0) return;
-      if (this.ui.selectedMenu >= 0) return;  // 메뉴 사용 중일 땐 드래그 X
+      // 상태창 헤더 드래그 시작
+      if (this.ui._statHeaderArea && this.ui.selectedEntity) {
+        const h = this.ui._statHeaderArea;
+        if (e.clientX >= h.x && e.clientX <= h.x + h.w
+            && e.clientY >= h.y && e.clientY <= h.y + h.h) {
+          this.ui._statDrag = { offX: e.clientX - h.x, offY: e.clientY - h.y };
+          return;
+        }
+      }
+      if (this.ui.selectedMenu >= 0) return;
       const wx = this._mouse.worldX, wy = this._mouse.worldY;
       let picked = null;
       for (const s of this.siljangsukList) {
         if (s.dead) continue;
         if (Utils.distance({ x: wx, y: wy }, s) < (s.size + 6)) { picked = s; break; }
+      }
+      // 선택된 실장석을 누르면 그룹 드래그 시작 (한 곳에 뭉쳐서 함께 이동)
+      if (picked && this.ui._selectedIds && this.ui._selectedIds.has(picked.id) && this.ui._selectedIds.size > 1) {
+        const entities = this.siljangsukList.filter(s => !s.dead && this.ui._selectedIds.has(s.id));
+        // 한 자리에 뭉치기 — 마우스 위치 주변 32px 원형 배치
+        const N = entities.length;
+        for (let i = 0; i < N; i++) {
+          const a = (i / N) * Math.PI * 2;
+          entities[i].x = wx + Math.cos(a) * 24;
+          entities[i].y = wy + Math.sin(a) * 24;
+          entities[i].targetX = entities[i].x;
+          entities[i].targetY = entities[i].y;
+        }
+        this._groupDrag = { entities, lastX: wx, lastY: wy };
+        return;
+      }
+      // 빈 땅 클릭 → 마퀴 시작
+      if (!picked) {
+        this._marqueeActive = { x0: wx, y0: wy, x1: wx, y1: wy };
+        // 기존 선택 해제 (Shift 없이)
+        if (!e.shiftKey) this.ui._selectedIds = new Set();
+        return;
       }
       if (picked) {
         // 더블탭 체크 (350ms 이내 같은 대상)
@@ -903,7 +1052,6 @@ const Game = {
         }
         this._lastTap = { entity: picked, time: now };
 
-        // 드래그 시작
         this._drag = {
           entity: picked, lastX: wx, lastY: wy,
           vx: 0, vy: 0, startTime: now, moved: false,
@@ -911,11 +1059,42 @@ const Game = {
         picked.beingDragged = true;
         picked.thrown = false;
         picked.vx = 0; picked.vy = 0;
+        // 익사 중인 실장석을 잡으면 익사 해제 (물 밖으로 꺼냄)
+        if (picked.drowning) {
+          picked.drowning = false;
+          this.addParticle(picked.x, picked.y - 18, '구조됨!', '#66ccff', 1800);
+          this.logEvent(`💧 ${picked.label} 익사에서 구조됨`, '#66ccff', { x: picked.x, y: picked.y });
+        }
       }
     });
 
     window.addEventListener('mouseup', e => {
       if (e.button !== 0) return;
+      // 상태창 드래그 종료
+      if (this.ui._statDrag) { this.ui._statDrag = null; return; }
+      // 마퀴 선택 종료
+      if (this._marqueeActive) {
+        const m = this._marqueeActive;
+        const x0 = Math.min(m.x0, m.x1), x1 = Math.max(m.x0, m.x1);
+        const y0 = Math.min(m.y0, m.y1), y1 = Math.max(m.y0, m.y1);
+        const sel = new Set();
+        for (const s of this.siljangsukList) {
+          if (s.dead) continue;
+          if (s.x >= x0 && s.x <= x1 && s.y >= y0 && s.y <= y1) sel.add(s.id);
+        }
+        this.ui._selectedIds = sel;
+        this._marqueeActive = null;
+        if (sel.size > 0) {
+          this.addParticle((x0 + x1) / 2, y0 - 10, `${sel.size}마리 선택`, '#ffe066', 1500);
+        }
+        return;
+      }
+      // 그룹 드래그 종료
+      if (this._groupDrag) {
+        this._groupDrag = null;
+        this._justDragged = true;
+        return;
+      }
       if (this._drag && this._drag.entity) {
         const ent = this._drag.entity;
         ent.beingDragged = false;
@@ -953,6 +1132,7 @@ const Game = {
         }
       }
 
+      if (this.ui.handleLogClick && this.ui.handleLogClick(sx, sy, this)) return;
       if (this.ui.handleTribePanelClick(sx, sy, this)) return;
       if (this.ui.handleRenameClick(sx, sy, this)) return;
       if (this.ui.handlePniepnieClick(sx, sy, this)) return;
@@ -991,13 +1171,84 @@ const Game = {
         const avail2 = MENU_ITEMS.filter(m => alive2 >= m.unlock || this.cheatUnlockAll);
         const menuItem = avail2[this.ui.selectedMenu];
         if (menuItem && menuItem.type !== 'none') {
-          // 인간/고양이 스폰
-          if (['human_1', 'human_2', 'cat'].includes(menuItem.type)) {
-            const typeMap = { human_1: 1, human_2: 2, cat: 3 };
+          // 인간/고양이/일반인 스폰
+          if (['human_1', 'human_2', 'cat', 'human_4'].includes(menuItem.type)) {
+            const typeMap = { human_1: 1, human_2: 2, cat: 3, human_4: 4 };
             const h = new Human(typeMap[menuItem.type]);
             h.x = wx; h.y = wy; h.targetX = wx; h.targetY = wy;
             this.humans.push(h);
             this.entities.set(h.id, h);
+            return;
+          }
+          // 대사 추가: prompt로 입력 받아 단계/카테고리 풀에 추가
+          if (menuItem.type === 'add_speech') {
+            const stage = window.prompt('어느 단계 대사? (1/2/3/4)', '4');
+            if (!stage) return;
+            const cat = window.prompt('카테고리? (idle/food/sleep/hurt/unci/play/raid/birth/meal/evening/taegyo)', 'idle');
+            if (!cat) return;
+            const text = window.prompt('대사 내용:', '');
+            if (!text) return;
+            try {
+              const sNum = parseInt(stage);
+              if (SPEECHES[sNum] && SPEECHES[sNum][cat]) {
+                if (Array.isArray(SPEECHES[sNum][cat])) {
+                  SPEECHES[sNum][cat].push(text.trim());
+                } else {
+                  // stage 3 idle의 경우 객체 (성격별)
+                  const subKey = Object.keys(SPEECHES[sNum][cat])[0];
+                  SPEECHES[sNum][cat][subKey].push(text.trim());
+                }
+                this.logEvent(`💬 ${sNum}단계 ${cat} 대사 추가: "${text}"`, '#aaffee');
+              } else {
+                alert('해당 단계/카테고리가 없습니다.');
+              }
+            } catch (e) { console.warn(e); }
+            return;
+          }
+          // 제거: 클릭 위치의 오브젝트/객체 파괴
+          if (menuItem.type === 'remove') {
+            // 실장석
+            for (const s of this.siljangsukList) {
+              if (!s.dead && Utils.distance({ x: wx, y: wy }, s) < (s.size + 6)) {
+                s.hp = 0; s._die(this, '제거됨'); return;
+              }
+            }
+            // 인간
+            for (const hh of this.humans) {
+              if (!hh.done && Utils.distance({ x: wx, y: wy }, hh) < 30) {
+                hh.done = true; return;
+              }
+            }
+            // 집
+            for (const h of this.houses) {
+              if (wx >= h.x && wx <= h.x + h.w && wy >= h.y && wy <= h.y + h.h) {
+                this.destroyHouse(h); return;
+              }
+            }
+            // 쓰레기통
+            for (let i = 0; i < this.trashCans.length; i++) {
+              const t = this.trashCans[i];
+              if (Utils.distance({ x: wx, y: wy }, t) < 30) {
+                this.trashCans.splice(i, 1); return;
+              }
+            }
+            // 물 시설
+            if (this.world?.waterSpots) {
+              for (let i = 0; i < this.world.waterSpots.length; i++) {
+                const w = this.world.waterSpots[i];
+                if (Utils.distance({ x: wx, y: wy }, w) < 40) {
+                  this.world.waterSpots.splice(i, 1);
+                  this.world._bgDirty = true;
+                  return;
+                }
+              }
+            }
+            // 아이템
+            for (const it of this.items) {
+              if (!it.collected && Utils.distance({ x: wx, y: wy }, it) < 20) {
+                it.collected = true; it.carriedBy = null; return;
+              }
+            }
             return;
           }
           // 쓰레기통 배치
@@ -1025,7 +1276,17 @@ const Game = {
       // 운치굴은 더이상 클릭 대상 아님 — 운치 양만 그림으로 표시
       this.ui.viewingUnci = false;
 
-      this.ui.handleClick(wx, wy, this);
+      const picked = this.ui.handleClick(wx, wy, this);
+      if (picked && picked instanceof Siljangsuk) {
+        picked._speech = '텟츙♥';
+        picked._speechTimer = 1.8;
+        for (let i = 0; i < 3; i++) {
+          this.addParticle(
+            picked.x + Utils.random(-12, 12),
+            picked.y - 18 + Utils.random(-8, 4),
+            '❤', '#ff66aa', 1500);
+        }
+      }
     });
   },
 };

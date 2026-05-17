@@ -4,8 +4,8 @@
 // Type 2 = 공격형 (attacker – hunts siljangsuk)
 // Type 3 = cat (wanders, attacks like type 2 but faster)
 
-const HUMAN_COLORS = ['#5588ee', '#66cc66', '#ee5555', '#ff9944'];
-const HUMAN_LABELS = ['방치파', '애호파', '학대파', '고양이'];
+const HUMAN_COLORS = ['#5588ee', '#66cc66', '#ee5555', '#ff9944', '#aaaaee'];
+const HUMAN_LABELS = ['방치파', '애호파', '학대파', '고양이', '일반인'];
 
 class Human {
   constructor(type) {
@@ -56,6 +56,7 @@ class Human {
       case 1: this._behaviorFeeder(dt, game);   break;
       case 2: this._behaviorAttacker(dt, game); break;
       case 3: this._behaviorCat(dt, game);      break;
+      case 4: this._behaviorCivilian(dt, game); break;
     }
 
     this._move(dt);
@@ -149,6 +150,27 @@ class Human {
     }
   }
 
+  // 일반인 — 낮에만 산책, 가까이 오면 걷어차서 멀리 날려보냄
+  _behaviorCivilian(dt, game) {
+    if (game.isNight) { this.done = true; return; } // 밤엔 떠남
+    if (this.kickCooldown <= 0) {
+      const nearby = game.findNearestSiljangsuk(this.x, this.y, 70, s => !s.dead);
+      if (nearby) {
+        // 발차기 — 던지듯이 멀리 날림
+        const dx = nearby.x - this.x, dy = nearby.y - this.y;
+        const n  = Utils.normalize(dx, dy);
+        nearby.thrown = true;
+        nearby.vx = n.x * 600;
+        nearby.vy = n.y * 600;
+        nearby.hp = Math.max(0, nearby.hp - 8);
+        nearby.hitFlashTimer = 0.35;
+        game.addParticle(nearby.x, nearby.y - 20, '걷어차임!', '#ff8800', 1500);
+        this.kickCooldown = 2.5;
+      }
+    }
+    this._wanderAround(dt);
+  }
+
   _wanderAround(dt) {
     this.stateTimer += dt;
     if (this.stateTimer > Utils.random(5, 12) || Utils.distance(this, { x: this.targetX, y: this.targetY }) < 20) {
@@ -194,20 +216,44 @@ class Human {
   }
 
   _drawHuman(ctx) {
+    // 사용자 지정 매핑:
+    //   type 1 (애호파/공급형) → human_attack.png
+    //   type 2 (학대파/공격형) → human_love.png
+    // 스프라이트 시트: 가로 4프레임 (48×48 each, 192×48 총)
+    //   col 0 = 앞 / col 1 = 왼쪽 / col 2 = 오른쪽 / col 3 = 뒤
+    let img = null;
+    if (this.type === 1 && Images.getHumanLove) img = Images.getHumanLove();
+    if (this.type === 2 && Images.getHumanAttack)   img = Images.getHumanAttack();
+    if (img) {
+      // 프레임당 48 × 124 (가로 4프레임 = 192 × 124 전체)
+      const FW = 32, FH = 128;
+      // 방향 계산
+      const dx = this.targetX - this.x, dy = this.targetY - this.y;
+      const d  = Math.sqrt(dx * dx + dy * dy);
+      let frame = 0;
+      if (d > 4) {
+        if (Math.abs(dy) >= Math.abs(dx)) {
+          frame = dy > 0 ? 0 /*앞*/ : 3 /*뒤*/;
+        } else {
+          frame = dx > 0 ? 2 /*오른쪽*/ : 1 /*왼쪽*/;
+        }
+      }
+      // 표시는 1:1 — 발치가 entity 위치에 오도록 위로 끌어올림
+      const dispW = 48, dispH = 124;
+      ctx.drawImage(img,
+        frame * FW, 0, FW, FH,
+        -dispW / 2, -dispH + 8, dispW, dispH);
+      return;
+    }
     const c = HUMAN_COLORS[this.type];
-    // Body
     ctx.fillStyle = c;
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';
     ctx.lineWidth = 1.5;
-    // Head
     ctx.beginPath(); ctx.arc(0, -22, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // Torso
     ctx.fillRect(-7, -14, 14, 18);
     ctx.strokeRect(-7, -14, 14, 18);
-    // Legs
     ctx.fillRect(-7, 4, 5, 14);
     ctx.fillRect(2, 4, 5, 14);
-    // Arms
     ctx.strokeStyle = c; ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.moveTo(-7, -12); ctx.lineTo(-16, 0);

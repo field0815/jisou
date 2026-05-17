@@ -24,23 +24,26 @@ class TrashCan {
     if (!camera.isVisible(this.x, this.y, 40)) return;
     ctx.save();
     ctx.translate(this.x, this.y);
-    // 쓰레기통 그리기 (간단한 캔 모양)
-    ctx.fillStyle = '#558866';
-    ctx.fillRect(-10, -18, 20, 22);
-    ctx.fillStyle = '#446655';
-    ctx.fillRect(-12, -22, 24, 6);
-    // 뚜껑
-    ctx.fillStyle = '#336644';
-    ctx.fillRect(-11, -24, 22, 4);
-    // 라인 장식
-    ctx.strokeStyle = '#224433';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(-8, -14); ctx.lineTo(-8, 2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(8, -14); ctx.lineTo(8, 2); ctx.stroke();
+    const img = Images.getTrashbox && Images.getTrashbox();
+    if (img) {
+      const sz = 96;
+      ctx.drawImage(img, -sz/2, -sz + 12, sz, sz);
+    } else {
+      ctx.fillStyle = '#558866';
+      ctx.fillRect(-10, -18, 20, 22);
+      ctx.fillStyle = '#446655';
+      ctx.fillRect(-12, -22, 24, 6);
+      ctx.fillStyle = '#336644';
+      ctx.fillRect(-11, -24, 22, 4);
+      ctx.strokeStyle = '#224433';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-8, -14); ctx.lineTo(-8, 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(8, -14); ctx.lineTo(8, 2); ctx.stroke();
+      ctx.fillStyle = '#334';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🗑', 0, 8);
+    }
     ctx.restore();
-    ctx.fillStyle = '#334';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('🗑', this.x, this.y + 8);
   }
 }

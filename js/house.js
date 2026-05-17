@@ -12,6 +12,10 @@ class House {
 
     // 식량 비축량 (food value 합산)
     this.foodReserves = 0;
+    // 자재 비축
+    this.paperStock = 0;
+    this.leafStock  = 0;
+    this.tarpStock  = 0;
 
     // 운치 (배설물) – 0~100
     this.unciAmount = 0;
@@ -121,9 +125,16 @@ class House {
     this.unciAmount = this.unciAmount + amount; // 무한 누적 가능 (캡 없음)
   }
 
-  repair(papers) {
-    this.hp = Math.min(this.maxHp, this.hp + papers * 15);
+  // 폐지 1장당 HP 5 수선
+  repairWithPaper(papers) {
+    this.hp = Math.min(this.maxHp, this.hp + papers * 5);
   }
+  // 방수포 1장당 HP 30 수선
+  repairWithTarp(tarps) {
+    this.hp = Math.min(this.maxHp, this.hp + tarps * 30);
+  }
+  // 호환용 (기존 호출)
+  repair(papers) { this.repairWithPaper(papers); }
 
   takeDamage(dmg) {
     this.hp = Math.max(0, this.hp - dmg);
@@ -264,10 +275,22 @@ class House {
     const stars = Math.round(comfort / 20);
     ctx.fillText('★'.repeat(stars), x, y - 20);
 
+    // 비축 표시: 식량 / 폐지 / 낙엽
+    ctx.textAlign = 'right';
+    let cy = y - 20;
     if (this.foodReserves > 0) {
       ctx.fillStyle = '#ff9944';
-      ctx.textAlign = 'right';
-      ctx.fillText(`🍱${Math.floor(this.foodReserves)}`, x + w, y - 20);
+      ctx.fillText(`🍱${Math.floor(this.foodReserves)}`, x + w, cy);
+      cy -= 11;
+    }
+    if (this.paperStock > 0) {
+      ctx.fillStyle = '#dddd99';
+      ctx.fillText(`📄${this.paperStock}`, x + w, cy);
+      cy -= 11;
+    }
+    if (this.leafStock > 0) {
+      ctx.fillStyle = '#aacc66';
+      ctx.fillText(`🍂${this.leafStock}`, x + w, cy);
     }
   }
 }

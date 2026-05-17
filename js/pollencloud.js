@@ -57,8 +57,8 @@ class PollenCloud {
       if (s.dead || s.stage !== 4 || s.pregnant) continue;
       if (game.dayIndex < (s._fertileAfterDay ?? 0)) continue;
       if (Utils.distance(this, s) < 36) {
-        s.pregnant       = true;
-        s.pregnancyTimer = 0;
+        if (s._onPregnant) s._onPregnant(game);
+        else { s.pregnant = true; s.pregnancyTimer = 0; }
         game.addParticle(s.x, s.y - 24, '꽃가루! 임신!', '#ffaaff', 2200);
         this.done = true;
         break;

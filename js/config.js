@@ -73,8 +73,15 @@ const CONFIG = {
   HOUSE_WIDTH: 90,
   HOUSE_HEIGHT: 70,
   HOUSE_BUILD_COST: 5,
-  HOUSE_BASE_HP: 100,
-  HOUSE_MAX_HP: 200,
+  HOUSE_MIN_SPACING: 144,           // 집간 최소 간격(px)
+  HOUSE_FACILITY_MIN: 200,          // 쓰레기통/수돗가/분수대로부터 최소 거리
+  HOUSE_COLLIDE_RADIUS: 64,         // 집 충돌 반지름 (128px 직경)
+  UNCI_COLLIDE_RADIUS: 64,          // 운치굴 충돌 반지름 (128px 직경)
+  STUCK_BYPASS_TIME: 2,             // 막힘 감지 후 이 시간(초) 지나면 통과 허용
+  HOUSE_DAILY_DECAY: 25,            // 일반 집 하루 HP 소모
+  HOUSE_VACANT_DAILY_DECAY: 100,    // 빈집 하루 HP 소모
+  HOUSE_BASE_HP: 300,
+  HOUSE_MAX_HP: 400,
   UNCI_RADIUS: 28,
   UNCI_DIST: 95,
 
