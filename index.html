@@ -9,13 +9,13 @@
 <body>
   <canvas id="gameCanvas"></canvas>
 
-  <!-- BGM 컨트롤 패널 (우상단 고정, 볼륨 + 음소거만) -->
+  <!-- BGM 컨트롤 패널 (우상단 고정, 볼륨 + 음소거만) — 게임 시작 후 표시 -->
   <div id="bgmPanel" style="
        position:fixed; top:40px; right:14px; z-index:50;
        background:rgba(10,8,5,0.85); color:#eee;
        font-family:'Noto Sans KR',sans-serif; font-size:11px;
        padding:6px 10px; border:1px solid #ffe066; border-radius:8px;
-       display:flex; align-items:center; gap:8px;">
+       display:none; align-items:center; gap:8px;">
     <span style="color:#ffe066; font-weight:bold;">🎵</span>
     <input type="range" min="0" max="100" value="35"
            oninput="AudioMgr.setVolume(this.value/100)" style="width:110px;">

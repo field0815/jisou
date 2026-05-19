@@ -126,9 +126,6 @@ const Game = {
   init() {
     this.canvas = document.getElementById('gameCanvas');
     this.ctx    = this.canvas.getContext('2d');
-    this.camera = new Camera(this.canvas);
-    this.world  = new World();
-    this.ui     = new UI();
 
     Images.load();
     AudioMgr.load();
@@ -136,10 +133,49 @@ const Game = {
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
-    this._bindInput();
-    this._spawnInitial();
-    this.camera.centerOn(this._initialHouse.cx, this._initialHouse.cy);
+    // 타이틀 화면부터 시작
+    this._showTitle();
+  },
 
+  // 모드를 결정한 후 실제 게임 초기화
+  _startGame(mode) {
+    console.log('[_startGame] mode=', mode);
+    CONFIG.GAME_MODE = mode;
+    this.camera = new Camera(this.canvas);
+    this.world  = new World();
+    this.ui     = new UI();
+    this._bindInput();
+    console.log('[_startGame] core systems initialized');
+
+    if (mode === 'load') {
+      // 모드는 저장된 데이터에서 복원
+      if (!SaveLoad.load(this)) {
+        // 저장본이 없으면 공원 모드로 폴백
+        CONFIG.GAME_MODE = 'park';
+        this._spawnInitial();
+      }
+    } else if (mode === 'family') {
+      this._spawnInitialFamily();
+      console.log('[_startGame] family spawn done, playerFamilyId=', this.playerFamilyId);
+    } else {
+      this._spawnInitial();
+    }
+
+    if (this._initialHouse) {
+      this.camera.centerOn(this._initialHouse.cx, this._initialHouse.cy);
+    }
+
+    // 자동저장 타이머
+    this._autosaveTimer = 0;
+
+    this._titleActive = false;
+
+    // BGM 패널 표시
+    const bgm = document.getElementById('bgmPanel');
+    if (bgm) bgm.style.display = 'flex';
+
+    console.log('[_startGame] entering main loop. siljangsuk=',
+      this.siljangsukList.length, 'houses=', this.houses.length);
     requestAnimationFrame(t => this._loop(t));
   },
 
@@ -148,52 +184,205 @@ const Game = {
     this.canvas.height = window.innerHeight;
   },
 
-  // ── Initial spawn ─────────────────────────────────────
-  _spawnInitial() {
-    const hx = CONFIG.WORLD_WIDTH  * 0.35 - CONFIG.HOUSE_WIDTH  / 2;
-    const hy = CONFIG.WORLD_HEIGHT * 0.40 - CONFIG.HOUSE_HEIGHT / 2;
+  // ── Title screen ──────────────────────────────────────
+  _titleActive: false,
+  _titleBtnAreas: [],
+  _showTitle() {
+    this._titleActive = true;
+    this._titleBtnAreas = [];
+
+    const drawTitle = () => {
+      if (!this._titleActive) return;
+      const { ctx, canvas } = this;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 배경
+      ctx.fillStyle = '#1a1a2a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const titleImg = Images.getTitle && Images.getTitle();
+      if (titleImg && titleImg.complete && titleImg.naturalWidth > 0) {
+        // 비율 유지하면서 화면에 꽉 채우기
+        const sc = Math.min(canvas.width / titleImg.naturalWidth,
+                            canvas.height / titleImg.naturalHeight);
+        const w = titleImg.naturalWidth * sc;
+        const h = titleImg.naturalHeight * sc;
+        ctx.drawImage(titleImg, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+      } else {
+        // 폴백 타이틀 텍스트
+        ctx.fillStyle = '#ffe066';
+        ctx.font = 'bold 64px "Noto Sans KR", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('후타바 공원', canvas.width / 2, canvas.height * 0.4);
+        ctx.font = '24px "Noto Sans KR", sans-serif';
+        ctx.fillStyle = '#cccccc';
+        ctx.fillText('실장석 시뮬레이터', canvas.width / 2, canvas.height * 0.4 + 50);
+      }
+
+      // 메뉴 (중앙 하단)
+      const labels = [
+        { key: 'family', label: '가족 시작 (베타)' },
+        { key: 'park',   label: '공원 시작' },
+        { key: 'load',   label: '불러오기' },
+      ];
+      const bw = 200, bh = 56, gap = 20;
+      const totalW = labels.length * bw + (labels.length - 1) * gap;
+      let x = (canvas.width - totalW) / 2;
+      const y = canvas.height - 140;
+      this._titleBtnAreas = [];
+      for (const item of labels) {
+        const hover = this._titleHover === item.key;
+        ctx.fillStyle = hover ? 'rgba(255,224,102,0.9)' : 'rgba(40,30,20,0.85)';
+        ctx.strokeStyle = '#ffe066';
+        ctx.lineWidth = 2;
+        Utils.roundRect(ctx, x, y, bw, bh, 10);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = hover ? '#1a1a2a' : '#ffe066';
+        ctx.font = 'bold 22px "Noto Sans KR", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.label, x + bw / 2, y + bh / 2);
+        ctx.textBaseline = 'alphabetic';
+        this._titleBtnAreas.push({ x, y, w: bw, h: bh, key: item.key });
+        x += bw + gap;
+      }
+
+      // 불러오기 가능 표시
+      const hasSave = !!localStorage.getItem('futaba_park_save');
+      if (!hasSave) {
+        const loadBtn = this._titleBtnAreas[2];
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        Utils.roundRect(ctx, loadBtn.x, loadBtn.y, loadBtn.w, loadBtn.h, 10);
+        ctx.fill();
+        ctx.fillStyle = '#aaa';
+        ctx.font = '14px "Noto Sans KR", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('(저장본 없음)', loadBtn.x + loadBtn.w / 2, loadBtn.y + loadBtn.h - 8);
+      }
+
+      requestAnimationFrame(drawTitle);
+    };
+
+    const onMove = (e) => {
+      if (!this._titleActive) return;
+      const mx = e.clientX, my = e.clientY;
+      this._titleHover = null;
+      for (const b of this._titleBtnAreas) {
+        if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+          this._titleHover = b.key;
+          break;
+        }
+      }
+    };
+    const tryHit = (e) => {
+      if (!this._titleActive) return;
+      const mx = e.clientX, my = e.clientY;
+      for (const b of this._titleBtnAreas) {
+        if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+          if (b.key === 'load' && !localStorage.getItem('futaba_park_save')) return;
+          // 리스너 정리
+          window.removeEventListener('mousemove', onMove, true);
+          window.removeEventListener('mousedown', tryHit, true);
+          window.removeEventListener('click', tryHit, true);
+          try {
+            this._startGame(b.key);
+          } catch (err) {
+            console.error('Failed to start game:', err);
+            // 실패하면 타이틀로 돌아가기
+            this._titleActive = true;
+            window.addEventListener('mousemove', onMove, true);
+            window.addEventListener('mousedown', tryHit, true);
+            window.addEventListener('click', tryHit, true);
+            requestAnimationFrame(drawTitle);
+          }
+          return;
+        }
+      }
+    };
+    window.addEventListener('mousemove', onMove, true);
+    window.addEventListener('mousedown', tryHit, true);
+    window.addEventListener('click', tryHit, true);
+
+    requestAnimationFrame(drawTitle);
+  },
+
+  // ── 공통: 한 가족(집 + 부모 + 자실장 3) 스폰 + 주변 시설 ──
+  // options: { personality, isPlayer }
+  _createFamilyAt(x, y, options = {}) {
+    const hx = x - CONFIG.HOUSE_WIDTH  / 2;
+    const hy = y - CONFIG.HOUSE_HEIGHT / 2;
     const house = new House(hx, hy, -1);
     this.houses.push(house);
     this.entities.set(house.id, house);
-    this._initialHouse = house;
 
-    // 4단계 성체 1마리 (집 주인) — 먼저 생성해 가족 id 확보
+    const personality = options.personality
+      ?? (Utils.randomPersonality ? Utils.randomPersonality() : CONFIG.PERSONALITY_NORMAL);
     const adult = this.spawnSiljangsuk(
-      house.cx + Utils.random(-40, 40),
-      house.cy + Utils.random(-40, 40),
-      4, null, CONFIG.PERSONALITY_NORMAL, null
+      house.cx + Utils.random(-30, 30),
+      house.cy + Utils.random(-30, 30),
+      4, null, personality, null
     );
-    adult.houseId    = house.id;
-    adult.satiation  = adult.maxSat;
-    adult.happiness  = 85;
-    adult.serialNo   = this.nextSerialNo++;
-    house.ownerId    = adult.id;
-    house.foodReserves = 60;
+    adult.houseId      = house.id;
+    adult.satiation    = adult.maxSat;
+    adult.happiness    = 80;
+    adult.serialNo     = this.nextSerialNo++;
+    house.ownerId      = adult.id;
+    house.foodReserves = 50;
+    if (options.isPlayer) adult.isPlayerFamily = true;
 
-    // 3단계 새끼 3마리 — 성체와 같은 familyId로 묶음 (형제이자 자식)
     const familyId = adult.familyId;
-    for (let i = 0; i < 3; i++) {
-      const s = this.spawnSiljangsuk(
-        house.cx + Utils.random(-60, 60),
-        house.cy + Utils.random(-60, 60),
+    for (let k = 0; k < 3; k++) {
+      const child = this.spawnSiljangsuk(
+        house.cx + Utils.random(-50, 50),
+        house.cy + Utils.random(-50, 50),
         3, adult.id, CONFIG.PERSONALITY_NORMAL, familyId
       );
-      s.houseId    = house.id;
-      s.satiation  = s.maxSat;
-      s.happiness  = 80;
-      s.serialNo   = this.nextSerialNo++;
-      s.birthOrder = i + 1;
-      s.parentLabelSnapshot = adult.label;
+      child.houseId    = house.id;
+      child.satiation  = child.maxSat;
+      child.happiness  = 80;
+      child.serialNo   = this.nextSerialNo++;
+      child.birthOrder = k + 1;
+      child.parentLabelSnapshot = adult.label;
     }
     adult.birthsGiven = 3;
 
-    // 집 없는 유랑 성체 5마리 — 각자 독립된 번호
-    for (let wi = 0; wi < 5; wi++) {
-      const spot = this.world.randomOpenSpot();
-      const wanderer = this.spawnSiljangsuk(spot.x, spot.y, 4, null, Utils.randomPersonality(), null);
-      wanderer.satiation = wanderer.maxSat * 0.5;
-      wanderer.happiness = Utils.random(35, 75);
-      wanderer.serialNo  = this.nextSerialNo++;
+    // 주변 쓰레기통(우상) + 수돗가(좌하) 배치 — 집과 충돌하지 않게
+    const trash = new TrashCan(
+      Utils.clamp(house.cx + 130, 50, CONFIG.WORLD_WIDTH - 50),
+      Utils.clamp(house.cy - 110, 50, CONFIG.WORLD_HEIGHT - 50)
+    );
+    this.trashCans.push(trash);
+
+    if (this.world && this.world.waterSpots) {
+      this.world.waterSpots.push({
+        type: 'tap',
+        x: Utils.clamp(house.cx - 130, 50, CONFIG.WORLD_WIDTH - 50),
+        y: Utils.clamp(house.cy + 110, 50, CONFIG.WORLD_HEIGHT - 50),
+        r: 28,
+      });
+      this.world._bgDirty = true;   // 배경 캐시 재생성
+    }
+
+    return { house, adult, familyId };
+  },
+
+  // ── Initial spawn ─────────────────────────────────────
+  _spawnInitial() {
+    const W = CONFIG.WORLD_WIDTH, H = CONFIG.WORLD_HEIGHT;
+    // 메인 가족(중앙쪽)
+    const main = this._createFamilyAt(W * 0.35, H * 0.40, { personality: CONFIG.PERSONALITY_NORMAL });
+    this._initialHouse = main.house;
+    main.house.foodReserves = 60;
+
+    // 추가 가족 5 — 흩어 배치
+    const positions = [
+      [W * 0.18, H * 0.20],
+      [W * 0.78, H * 0.25],
+      [W * 0.20, H * 0.78],
+      [W * 0.82, H * 0.80],
+      [W * 0.55, H * 0.65],
+    ];
+    for (const [x, y] of positions) {
+      this._createFamilyAt(x, y);
     }
 
     // 초기 아이템
@@ -202,14 +391,33 @@ const Game = {
       const type = Math.random() < 0.5 ? randomFoodType() : (Math.random() < 0.5 ? 'paper' : 'leaf');
       this.spawnItem(type, spot.x, spot.y);
     }
+  },
 
-    // 쓰레기통 6개 배치
-    const trashPositions = [
-      [800, 700], [2500, 500], [4200, 800],
-      [700, 3200], [2600, 3500], [4100, 3000]
-    ];
-    for (const [tx, ty] of trashPositions) {
-      this.trashCans.push(new TrashCan(tx, ty));
+  // ── 가족 모드 초기 스폰 ───────────────────────────
+  _spawnInitialFamily() {
+    const W = CONFIG.WORLD_WIDTH, H = CONFIG.WORLD_HEIGHT;
+    const totalFamilies = (CONFIG.FAMILY_STARTING_FAMILIES ?? 4) + 1;
+    this.playerFamilyId = null;
+
+    let firstHouse = null;
+    for (let i = 0; i < totalFamilies; i++) {
+      const angle = (i / totalFamilies) * Math.PI * 2 + Math.random() * 0.3;
+      const r = Math.min(W, H) * 0.30;
+      const cx = Utils.clamp(W / 2 + Math.cos(angle) * r, 300, W - 300);
+      const cy = Utils.clamp(H / 2 + Math.sin(angle) * r, 300, H - 300);
+      const fam = this._createFamilyAt(cx, cy, { isPlayer: i === 0 });
+      if (i === 0) {
+        firstHouse = fam.house;
+        this.playerFamilyId = fam.familyId;
+      }
+    }
+    this._initialHouse = firstHouse;
+
+    // 초기 바닥 아이템
+    for (let i = 0; i < 15; i++) {
+      const spot = this.world.randomOpenSpot();
+      const type = Math.random() < 0.5 ? randomFoodType() : (Math.random() < 0.5 ? 'paper' : 'leaf');
+      this.spawnItem(type, spot.x, spot.y);
     }
   },
 
@@ -220,9 +428,20 @@ const Game = {
     this._lastTime = timestamp;
     dt = Math.min(dt, 0.1) * this.gameSpeed;
 
-    if (!this.isPaused) this._update(dt);
+    if (!this.isPaused) {
+      try { this._update(dt); }
+      catch (e) { console.error('Update error:', e); this.isPaused = true; }
+    }
     AudioMgr.updateForState(this);
-    this._draw();
+    try { this._draw(); }
+    catch (e) { console.error('Draw error:', e); }
+
+    // 자동 저장
+    this._autosaveTimer = (this._autosaveTimer ?? 0) + dt;
+    if (this._autosaveTimer >= (CONFIG.AUTOSAVE_INTERVAL ?? 10)) {
+      this._autosaveTimer = 0;
+      try { SaveLoad.save(this); } catch (e) {}
+    }
 
     requestAnimationFrame(t => this._loop(t));
   },
@@ -315,15 +534,16 @@ const Game = {
     }
     this._checkRaidEnd();
 
-    // 역병 업데이트
+    // 역병 업데이트 (가족 모드: 자동 전파 비활성, 이벤트로만 발동)
+    const plagueSpreadEnabled = CONFIG.GAME_MODE !== 'family';
     for (const s of this.siljangsukList) {
       if (s.dead || !s._plagueInfected) continue;
       s._plagueTimer -= dt;
       if (s._plagueTimer > 0) continue;
       // 감염 진행
       s._plagueStage = Math.min(1, (s._plagueStage ?? 0) + dt / 30);
-      // 주변 실장석에게 전파
-      if (Math.random() < 0.02) {
+      // 주변 실장석에게 전파 (가족 모드에선 자동 전파 차단)
+      if (plagueSpreadEnabled && Math.random() < 0.02) {
         const near = this.findNearestSiljangsuk(s.x, s.y, 80, t =>
           !t.dead && !t._plagueInfected && t.id !== s.id);
         if (near) {
@@ -475,6 +695,19 @@ const Game = {
 
   // ── 매일 처음 (dayIndex 갱신 시) ────────────────────
   _onNewDay(d) {
+    // 집 안락함에 따라 거주자 행복 +5/별 (별=comfort/20)
+    for (const h of this.houses) {
+      const stars = Math.round(h.comfort / 20);
+      if (stars <= 0) continue;
+      const gain = stars * 5;
+      for (const s of this.siljangsukList) {
+        if (s.dead) continue;
+        if (s.houseId !== h.id) continue;
+        if (s.slaveOf) continue;
+        s.happiness = Math.min(100, s.happiness + gain);
+      }
+    }
+
     if (d > 0 && d % CONFIG.CAT_SPAWN_DAYS === 0) {
       const h = new Human(3);
       this.humans.push(h); this.entities.set(h.id, h);
@@ -532,15 +765,29 @@ const Game = {
 
     for (const s of this.siljangsukList) {
       if (s.dead) continue;
+      // 페이즈 변경 시 행동 잠금 해제 (변수 발생)
+      if (s._breakActionLock) s._breakActionLock();
 
       if (to === 'morning') {
+        // 밤사이 탈주한 노예의 은신 효과 해제
+        if (s._stealth) s._stealth = false;
         // 아침 식사: 모든 실장석
         s._mealPending = true;
+        // 아침 물 마시기 욕구 (성체만) - drink 후 소풍 판정
+        if (s.stage === 4 && !s.slaveOf) {
+          s._needDrink = true;
+          s._drankToday = false;
+          s._picnicToday = false;
+        }
         // 2~3단계: 낮 중간 식사 2회 예약
         if (s.stage >= 2 && s.stage < 4) {
           s._childMealCount = 2;
           s._childMealTimer = 17;
         }
+      }
+      if (to === 'evening' || to === 'night') {
+        // 저녁/밤 되면 소풍 종료
+        if (s._picnicToday) s._picnicToday = false;
       }
 
       if (to === 'evening') {
@@ -553,6 +800,200 @@ const Game = {
         s._childMealCount = 0;
       }
     }
+  },
+
+  // ── 가족 모드: 선택된 엔티티 조회 ─────────────────
+  _getSelectedFamilyEntities() {
+    const ids = this.ui?._selectedIds;
+    if (!ids || ids.size === 0) return [];
+    const out = [];
+    for (const s of this.siljangsukList) {
+      if (s.dead) continue;
+      if (!ids.has(s.id)) continue;
+      if (s.familyId !== this.playerFamilyId) continue;
+      if (s.slaveOf) continue;
+      out.push(s);
+    }
+    return out;
+  },
+
+  // ── 가족 모드: 우클릭 명령 처리 ───────────────────
+  _handleFamilyRightClick(wx, wy, shiftAdd) {
+    const selected = this._getSelectedFamilyEntities();
+    if (selected.length === 0) return;
+
+    // 타겟 분류
+    // 1) 운치굴: 어떤 집의 unci 반경?
+    let unciHouse = null;
+    for (const h of this.houses) {
+      if (Utils.distance({ x: wx, y: wy }, { x: h.unciX, y: h.unciY }) <= CONFIG.UNCI_RADIUS + 6) {
+        unciHouse = h; break;
+      }
+    }
+    // 2) 쓰레기통
+    let trash = null;
+    for (const tc of this.trashCans) {
+      if (Utils.distance({ x: wx, y: wy }, tc) < 40) { trash = tc; break; }
+    }
+    // 3) 수풀
+    let bush = null;
+    if (!trash && this.world && this.world.bushes) {
+      let bd = Infinity;
+      for (const b of this.world.bushes) {
+        const d = Utils.distance({ x: wx, y: wy }, b);
+        if (d < (b.r ?? 16) + 8 && d < bd) { bd = d; bush = b; }
+      }
+    }
+    // 4) 다른 실장석
+    let targetSilj = null;
+    for (const s of this.siljangsukList) {
+      if (s.dead) continue;
+      if (Utils.distance({ x: wx, y: wy }, s) < (s.size + 6)) { targetSilj = s; break; }
+    }
+
+    // 명령 분배
+    if (targetSilj && targetSilj.familyId === this.playerFamilyId && !targetSilj.slaveOf
+        && targetSilj.stage >= 2 && targetSilj.stage <= 3) {
+      // 자기 가족 자식(2/3단계) → 프니프니 담당
+      for (const e of selected) {
+        e._command = { type: 'pniepnie' };
+      }
+      this.addParticle(targetSilj.x, targetSilj.y - 20,
+        `프니프니 담당 ${selected.length}명`, '#ffaaff', 1800);
+      // 명령 받은 새끼 자체에게 부여 (대상이 명령 받는 게 자연스러우니)
+      targetSilj._command = { type: 'pniepnie' };
+      return;
+    }
+
+    if (targetSilj && targetSilj.stage <= 3 && targetSilj.familyId === this.playerFamilyId
+        && !targetSilj.slaveOf && unciHouse === null) {
+      // 일반적인 새끼 클릭은 위에서 처리. 폴백 — 이동
+    }
+
+    if (unciHouse && targetSilj && targetSilj.stage >= 2 && targetSilj.stage <= 3
+        && !targetSilj.slaveOf) {
+      // 운치굴 + 새끼: 처박는 명령 (선택된 1명이 데려감)
+      const carrier = selected[0];
+      carrier._command = {
+        type: 'put_in_unci',
+        babyId: targetSilj.id,
+        houseId: unciHouse.id,
+      };
+      this.addParticle(targetSilj.x, targetSilj.y - 20, '운치굴로 끌고감!', '#cc6666', 1800);
+      return;
+    }
+
+    if (trash) {
+      const adults = selected.filter(s => s.stage === 4);
+      const limit = 3;
+      let slots = limit - this._countAssignedToTrash(trash);
+      for (const e of adults) {
+        if (slots <= 0) break;
+        e._command = { type: 'gather_trash', x: trash.x, y: trash.y, targetId: trash.id };
+        slots--;
+      }
+      this.addParticle(trash.x, trash.y - 30, '쓰레기통 채집 지정', '#cccc66', 1500);
+      return;
+    }
+
+    if (bush) {
+      const adults = selected.filter(s => s.stage === 4);
+      let slots = 1 - this._countAssignedToBush(bush);
+      for (const e of adults) {
+        if (slots <= 0) break;
+        e._command = { type: 'gather_bush', x: bush.x, y: bush.y, bushId: this._bushKey(bush) };
+        slots--;
+      }
+      this.addParticle(bush.x, bush.y - 20, '수풀 채집 지정', '#88dd88', 1500);
+      return;
+    }
+
+    // 기본: 이동
+    // 선택된 멤버를 우클릭 지점 주변에 원형 배치 목표
+    const N = selected.length;
+    for (let i = 0; i < N; i++) {
+      const ang = (i / Math.max(1, N)) * Math.PI * 2;
+      const r = N > 1 ? 28 : 0;
+      selected[i]._command = {
+        type: 'move',
+        x: wx + Math.cos(ang) * r,
+        y: wy + Math.sin(ang) * r,
+      };
+    }
+    this.addParticle(wx, wy, '이동', '#aaffff', 800);
+  },
+
+  _countAssignedToTrash(trash) {
+    let n = 0;
+    for (const s of this.siljangsukList) {
+      if (s.dead) continue;
+      if (s._command && s._command.type === 'gather_trash' && s._command.targetId === trash.id) n++;
+    }
+    return n;
+  },
+  _bushKey(b) { return `${Math.round(b.x)}_${Math.round(b.y)}`; },
+  _countAssignedToBush(bush) {
+    const key = this._bushKey(bush);
+    let n = 0;
+    for (const s of this.siljangsukList) {
+      if (s.dead) continue;
+      if (s._command && s._command.type === 'gather_bush' && s._command.bushId === key) n++;
+    }
+    return n;
+  },
+
+  // ── 전장의 안개 (가족 모드) ─────────────────────────
+  // 플레이어 가족 멤버 주변만 시야 — 픽셀 마스크.
+  // 화면 크기로 fog 캔버스를 한 번 채우고, 각 멤버 위치에서 radial gradient로 구멍을 뚫는다.
+  _drawFogOfWar(ctx, camera) {
+    if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
+    const fc = this._fogCanvas;
+    if (fc.width !== this.canvas.width || fc.height !== this.canvas.height) {
+      fc.width  = this.canvas.width;
+      fc.height = this.canvas.height;
+    }
+    const fctx = fc.getContext('2d');
+
+    // 1) 전체를 어둡게
+    fctx.globalCompositeOperation = 'source-over';
+    fctx.fillStyle = 'rgba(0,0,15,0.85)';
+    fctx.fillRect(0, 0, fc.width, fc.height);
+
+    // 2) 플레이어 가족 멤버 위치마다 구멍 뚫기 (destination-out)
+    fctx.globalCompositeOperation = 'destination-out';
+    const R = CONFIG.FOG_VISIBILITY_RADIUS ?? 350;
+    const R_screen = R * camera.zoom;
+    const drawVision = (wx, wy) => {
+      const sx = (wx - camera.x) * camera.zoom;
+      const sy = (wy - camera.y) * camera.zoom;
+      if (sx < -R_screen || sy < -R_screen || sx > fc.width + R_screen || sy > fc.height + R_screen) return;
+      const grad = fctx.createRadialGradient(sx, sy, 0, sx, sy, R_screen);
+      grad.addColorStop(0,    'rgba(0,0,0,1)');
+      grad.addColorStop(0.65, 'rgba(0,0,0,0.85)');
+      grad.addColorStop(1,    'rgba(0,0,0,0)');
+      fctx.fillStyle = grad;
+      fctx.beginPath();
+      fctx.arc(sx, sy, R_screen, 0, Math.PI * 2);
+      fctx.fill();
+    };
+    for (const s of this.siljangsukList) {
+      if (s.dead || s.familyId !== this.playerFamilyId) continue;
+      drawVision(s.x, s.y);
+    }
+    // 자기 가족 집 주변도 시야 확보
+    for (const h of this.houses) {
+      const owner = this.entities.get(h.ownerId);
+      if (owner && owner.familyId === this.playerFamilyId) {
+        drawVision(h.cx, h.cy);
+      }
+    }
+    fctx.globalCompositeOperation = 'source-over';
+
+    // 3) 화면에 합성 — camera 변환 무시하고 스크린 좌표로 통째로 덮기
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(fc, 0, 0);
+    ctx.restore();
   },
 
   _spawnRandomItem() {
@@ -595,18 +1036,42 @@ const Game = {
     for (const h of this.houses) {
       if (h.drawUnci) h.drawUnci(ctx, camera);
     }
-    // 바닥 운치 (데후웃! 배변)
+    // 바닥 운치 — 근접한 것끼리 그룹화하여 표시 (×N, 최대 10)
+    for (const u of this.floorUnci) { u._skipDraw = false; u.groupCount = 1; }
     for (const u of this.floorUnci) {
+      if (u._skipDraw) continue;
+      let count = 1;
+      for (const v of this.floorUnci) {
+        if (v === u || v._skipDraw) continue;
+        if (Utils.distance(u, v) < 48 && count < 10) {
+          count++;
+          v._skipDraw = true;
+        }
+      }
+      u.groupCount = count;
+    }
+    for (const u of this.floorUnci) {
+      if (u._skipDraw) continue;
       if (!camera.isVisible(u.x, u.y, 30)) continue;
       ctx.save();
       ctx.globalAlpha = Math.min(1, u.life / 30) * 0.7;
       ctx.fillStyle = '#7a5020';
+      const r = 10 + Math.min(u.amount * u.groupCount, 60) * 0.35;
       ctx.beginPath();
-      ctx.arc(u.x, u.y, 10 + Math.min(u.amount, 30) * 0.4, 0, Math.PI * 2);
+      ctx.arc(u.x, u.y, r, 0, Math.PI * 2);
       ctx.fill();
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('💩', u.x, u.y + 4);
+      if (u.groupCount > 1) {
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.font = 'bold 11px sans-serif';
+        const txt = `×${u.groupCount}`;
+        ctx.strokeText(txt, u.x + r + 4, u.y - r + 4);
+        ctx.fillText(txt, u.x + r + 4, u.y - r + 4);
+      }
       ctx.restore();
     }
 
@@ -744,6 +1209,42 @@ const Game = {
       ctx.restore();
     }
 
+    // 가족 모드: 명령 받은 멤버에 작은 명령 표식
+    if (CONFIG.GAME_MODE === 'family') {
+      ctx.save();
+      const cmdIcon = {
+        move:          { txt: '➤', color: '#aaffff' },
+        gather_trash:  { txt: '🗑', color: '#ddcc66' },
+        gather_bush:   { txt: '🌿', color: '#88dd88' },
+        pniepnie:      { txt: '💝', color: '#ffaaff' },
+        put_in_unci:   { txt: '⛓', color: '#cc6666' },
+        build:         { txt: '🔨', color: '#ffcc66' },
+      };
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      for (const s of this.siljangsukList) {
+        if (s.dead || !s._command) continue;
+        if (s.familyId !== this.playerFamilyId) continue;
+        const ico = cmdIcon[s._command.type];
+        if (!ico) continue;
+        ctx.fillStyle = ico.color;
+        ctx.fillText(ico.txt, s.x + s.size + 6, s.y - s.size - 4);
+        // 이동/작업 타겟까지 점선
+        if (s._command.x !== undefined) {
+          ctx.strokeStyle = ico.color;
+          ctx.globalAlpha = 0.4;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.moveTo(s.x, s.y);
+          ctx.lineTo(s._command.x, s._command.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+        }
+      }
+      ctx.restore();
+    }
+
     // 마퀴 (드래그 중인 선택 사각형)
     if (this._marqueeActive) {
       const m = this._marqueeActive;
@@ -800,6 +1301,11 @@ const Game = {
         ctx.stroke();
       }
       ctx.setLineDash([]);
+    }
+
+    // 전장의 안개 (가족 모드 한정) — camera 변환 적용된 상태에서 그리기
+    if (CONFIG.GAME_MODE === 'family' && this.playerFamilyId !== null && this.playerFamilyId !== undefined) {
+      this._drawFogOfWar(ctx, camera);
     }
 
     camera.restore(ctx);
@@ -1034,12 +1540,21 @@ const Game = {
     for (const s of this.siljangsukList) {
       if (s.raidTarget === defFam) s.raidTarget = null;
       if (s.defendAgainst === atkFam) s.defendAgainst = null;
+      s._warDecision = undefined;
     }
   },
 
   destroyHouse(house) {
     for (const s of this.siljangsukList) {
-      if (s.houseId === house.id) s.houseId = null;
+      if (s.houseId === house.id) {
+        s.houseId = null;
+        // 집에 있던 고아 새끼는 진짜 고아 처리 시작
+        if (s._orphanVulnerable && s.stage < 4 && !s.slaveOf) {
+          s.familyId = s.id;
+          s.generation = 0;
+          s._orphanGoal = null;
+        }
+      }
     }
     this.houses = this.houses.filter(h => h.id !== house.id);
     this.entities.delete(house.id);
@@ -1054,13 +1569,24 @@ const Game = {
     const reqFam = (typeof requester === 'object' && requester) ? requester.familyId : null;
     for (const item of this.items) {
       if (item.collected) continue;
-      // 최근(10초) 다른 실장석이 claim 한 경우: 같은 가족이면 제외
-      if (item.claimedBy && item.claimedBy !== reqId
-          && item._claimTime && (now - item._claimTime) < 10000) {
-        if (reqFam !== null) {
-          const claimer = this.entities.get(item.claimedBy);
-          if (claimer && claimer.familyId === reqFam) continue;
+      // 같은 가족 누군가가 claim 했으면 항상 제외 (시간 무관)
+      if (item.claimedBy && item.claimedBy !== reqId && reqFam !== null) {
+        const claimer = this.entities.get(item.claimedBy);
+        if (claimer && !claimer.dead && claimer.familyId === reqFam) continue;
+      }
+      // 추가: 같은 가족 누군가가 이미 이 아이템 근처로 향하고 있으면 제외
+      if (reqFam !== null) {
+        let alreadyHeading = false;
+        for (const s of this.siljangsukList) {
+          if (s.dead || s.id === reqId) continue;
+          if (s.familyId !== reqFam) continue;
+          if (s.targetX === undefined) continue;
+          const td = Math.hypot(s.targetX - item.x, s.targetY - item.y);
+          if (td < 18 && Utils.distance(s, item) < 200) {
+            alreadyHeading = true; break;
+          }
         }
+        if (alreadyHeading) continue;
       }
       if (filter && !filter(item)) continue;
       const d = Utils.distance({ x, y }, item);
@@ -1188,12 +1714,23 @@ const Game = {
       }
     });
 
+    // 컨텍스트 메뉴(우클릭 기본 동작) 차단 — 가족 모드 명령 입력용
+    window.addEventListener('contextmenu', e => {
+      if (CONFIG.GAME_MODE === 'family') e.preventDefault();
+    });
+
     // 마우스 다운: 실장석 위에서 드래그 시작
     window.addEventListener('mousedown', e => {
       // 휠 버튼(중간 버튼) pan 시작
       if (e.button === 1) {
         e.preventDefault();
         this._panDrag = { lastX: e.clientX, lastY: e.clientY };
+        return;
+      }
+      // 우클릭(가족 모드 명령)
+      if (e.button === 2 && CONFIG.GAME_MODE === 'family') {
+        e.preventDefault();
+        this._handleFamilyRightClick(this._mouse.worldX, this._mouse.worldY, e.shiftKey);
         return;
       }
       if (e.button !== 0) return;
@@ -1236,6 +1773,20 @@ const Game = {
         return;
       }
       if (picked) {
+        // 가족 모드: 플레이어 가족 클릭 = 선택 (물리 드래그 X)
+        if (CONFIG.GAME_MODE === 'family' && picked.familyId === this.playerFamilyId && !picked.slaveOf) {
+          if (!this.ui._selectedIds) this.ui._selectedIds = new Set();
+          if (!e.shiftKey) this.ui._selectedIds.clear();
+          if (this.ui._selectedIds.has(picked.id) && e.shiftKey) {
+            this.ui._selectedIds.delete(picked.id);
+          } else {
+            this.ui._selectedIds.add(picked.id);
+          }
+          // 단일 선택 상태에서 상세 패널 표시도
+          if (this.ui._selectedIds.size === 1) this.ui.selectedEntity = picked;
+          return;
+        }
+
         // 더블탭 체크 (350ms 이내 같은 대상)
         const now = performance.now();
         if (this._lastTap.entity === picked && (now - this._lastTap.time) < 350) {
@@ -1243,6 +1794,15 @@ const Game = {
           picked.hp = Math.max(0, picked.hp - dmg);
           picked.hitFlashTimer = 0.35;
           this.addParticle(picked.x, picked.y - 18, `-${dmg}(찰싹)`, '#ff4444', 1000);
+          // 운치굴 갇힘 + HP 0 → 죽지 않고 노예화
+          if (picked._stuckInUnci && picked.hp <= 0 && !picked.slaveOf) {
+            picked.hp = 1;
+            picked.slaveOf  = picked._stuckOwnerId ?? null;
+            picked.wasSlave = true;
+            picked._stuckInUnci = false;
+            this.addParticle(picked.x, picked.y - 30, '⛓ 노예화!', '#cc6666', 2500);
+            this.logEvent && this.logEvent(`⛓ ${picked.label} 독라 노예로 전락`, '#cc6666', { x: picked.x, y: picked.y });
+          }
           this._lastTap = { entity: null, time: 0 };
           return;
         }
@@ -1270,16 +1830,23 @@ const Game = {
         return;
       }
       if (e.button !== 0) return;
-      // 상태창 드래그 종료
-      if (this.ui._statDrag) { this.ui._statDrag = null; return; }
+      // 상태창 드래그 종료 — 직후 click 이벤트로 선택 해제 안 되게 가드
+      if (this.ui._statDrag) {
+        this.ui._statDrag = null;
+        this._justEndedStatDrag = true;
+        return;
+      }
       // 마퀴 선택 종료
       if (this._marqueeActive) {
         const m = this._marqueeActive;
         const x0 = Math.min(m.x0, m.x1), x1 = Math.max(m.x0, m.x1);
         const y0 = Math.min(m.y0, m.y1), y1 = Math.max(m.y0, m.y1);
         const sel = new Set();
+        const familyOnly = (CONFIG.GAME_MODE === 'family');
         for (const s of this.siljangsukList) {
           if (s.dead) continue;
+          if (familyOnly && s.familyId !== this.playerFamilyId) continue;
+          if (familyOnly && s.slaveOf) continue;
           if (s.x >= x0 && s.x <= x1 && s.y >= y0 && s.y <= y1) sel.add(s.id);
         }
         this.ui._selectedIds = sel;
@@ -1422,6 +1989,44 @@ const Game = {
             this.entities.set(h.id, h);
             return;
           }
+          // 실장석 직접 스폰
+          const spawnMap = {
+            spawn_adult:        { stage: 4, slave: false },
+            spawn_stage3:       { stage: 3, slave: false },
+            spawn_stage2:       { stage: 2, slave: false },
+            spawn_stage1:       { stage: 1, slave: false },
+            spawn_adult_slave:  { stage: 4, slave: true  },
+            spawn_stage3_slave: { stage: 3, slave: true  },
+            spawn_stage2_slave: { stage: 2, slave: true  },
+          };
+          if (spawnMap[menuItem.type]) {
+            const cfg = spawnMap[menuItem.type];
+            const s = this.spawnSiljangsuk(wx, wy, cfg.stage, null,
+              Utils.randomPersonality(), null);
+            s.serialNo = this.nextSerialNo++;
+            s.satiation = s.maxSat;
+            s.happiness = 60;
+            if (cfg.slave) {
+              s.wasSlave = true;
+              s.fugitive = true;
+              s.parentId = null;
+              s.familyId = s.id;
+              s.generation = 0;
+            }
+            this.addParticle(wx, wy - 20, '+1', '#ffe066', 1000);
+            return;
+          }
+          // 꽃가루: 클릭한 4단계 성체를 즉시 임신
+          if (menuItem.type === 'pollen') {
+            const target = this.findNearestSiljangsuk(wx, wy, 50,
+              s => !s.dead && s.stage === 4 && !s.pregnant && !s.slaveOf);
+            if (target && target._onPregnant) {
+              target._onPregnant(this);
+              this.addParticle(target.x, target.y - 22, '🌸 임신!', '#ffaaff', 2000);
+              this.logEvent(`🌸 ${target.label} 꽃가루 임신`, '#ffaaff', { x: target.x, y: target.y });
+            }
+            return;
+          }
           // 역병 선택 후 실장석 클릭
           if (menuItem.type === 'plague') {
             const target = this.findNearestSiljangsuk(wx, wy, 40, s => !s.dead);
@@ -1536,6 +2141,9 @@ const Game = {
 
       // 운치굴은 더이상 클릭 대상 아님 — 운치 양만 그림으로 표시
       this.ui.viewingUnci = false;
+
+      // 상태창 드래그 직후의 click은 무시 (선택 해제 방지)
+      if (this._justEndedStatDrag) { this._justEndedStatDrag = false; return; }
 
       const picked = this.ui.handleClick(wx, wy, this);
       if (picked && picked instanceof Siljangsuk) {

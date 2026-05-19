@@ -3,7 +3,8 @@ const Images = {
   _imgs: {},
 
   // 월드 배경에 영향을 주는 이미지가 로드되면 캐시 무효화
-  _BG_KEYS: new Set(['tile', 'smalltree', 'tree', 'watergen1', 'watergen2', 'watergen3']),
+  _BG_KEYS: new Set(['tile', 'smalltree', 'tree', 'watergen1', 'watergen2', 'watergen3',
+                     'house1', 'house2', 'house3', 'house4', 'house5']),
   _onImageLoaded(key, img) {
     this._imgs[key] = img;
     if (this._BG_KEYS.has(key) && typeof Game !== 'undefined' && Game.world) {
@@ -37,9 +38,17 @@ const Images = {
       img.onerror = () => {};
       img.src = `images/${file}.png`;
     }
+    // 안락도별 집 (house1.png ~ house5.png) — 없으면 기본 house.png로 폴백
+    for (let i = 1; i <= 5; i++) {
+      const key = `house${i}`;
+      const img = new Image();
+      img.onload  = () => this._onImageLoaded(key, img);
+      img.onerror = () => {};
+      img.src = `images/${key}.png`;
+    }
     // 월드 타일 + 인간/쓰레기통 (배경 캐시 영향)
     const extras = ['tile', 'smalltree', 'tree', 'watergen1', 'watergen2', 'watergen3',
-                    'human_attack', 'human_love', 'trashbox'];
+                    'human_attack', 'human_love', 'trashbox', 'Title'];
     for (const key of extras) {
       const img = new Image();
       img.onload  = () => this._onImageLoaded(key, img);
@@ -49,6 +58,11 @@ const Images = {
   },
 
   getHouse()    { return this._imgs.house           ?? null; },
+  // 안락도 단계별 집 이미지 (1~5). 없으면 기본 house로 폴백
+  getHouseLevel(level) {
+    const lv = Math.max(1, Math.min(5, level | 0));
+    return this._imgs[`house${lv}`] ?? this._imgs.house ?? null;
+  },
   getPooCave()  { return this._imgs.poo_cave        ?? null; },
   getPregnant() { return this._imgs.stage4_pregnant ?? null; },
   getTile()     { return this._imgs.tile      ?? null; },
@@ -60,6 +74,7 @@ const Images = {
   getHumanAttack(){ return this._imgs.human_attack ?? null; }, // 애호파(공급형)
   getHumanLove()  { return this._imgs.human_love   ?? null; }, // 학대파(공격형)
   getTrashbox()   { return this._imgs.trashbox     ?? null; },
+  getTitle()      { return this._imgs.Title        ?? null; },
 
   // 해당 단계 이미지가 로드됐으면 반환, 아니면 null
   get(stage) {

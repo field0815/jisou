@@ -10,9 +10,14 @@ class TrashCan {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = Utils.random(8, 20);
-      const r = Math.random();
-      const type = r < 0.6 ? randomFoodType() : 'paper';
       for (let i = 0; i < 2; i++) {
+        const r = Math.random();
+        let type;
+        if      (r < 0.01) type = 'dodonpa';     // 1%
+        else if (r < 0.03) type = 'confetto';    // 2%
+        else if (r < 0.06) type = 'tarp';        // 3% (방수포)
+        else if (r < 0.60) type = randomFoodType();
+        else               type = 'paper';
         game.spawnItem(type,
           this.x + Utils.random(-40, 40),
           this.y + Utils.random(-40, 40));

@@ -4,7 +4,9 @@ const SaveLoad = {
   save(game) {
     try {
       const data = {
-        version: 2,
+        version: 3,
+        gameMode: CONFIG.GAME_MODE,
+        playerFamilyId: game.playerFamilyId ?? null,
         dayTime: game.dayTime,
         totalSpawned: game.totalSpawned,
         prevUnlock: game.prevUnlock,
@@ -27,6 +29,8 @@ const SaveLoad = {
           pniepnieTimer: s.pniepnieTimer,
           nailBoost: s.nailBoost,
           slaveOf:   s.slaveOf,
+          wasSlave:  s.wasSlave,
+          isPlayerFamily: s.isPlayerFamily,
         })),
 
         houses: game.houses.map(h => ({
@@ -71,6 +75,10 @@ const SaveLoad = {
       game.humans         = [];
       game.entities       = new Map();
 
+      // 모드 복원
+      if (data.gameMode) CONFIG.GAME_MODE = data.gameMode;
+      game.playerFamilyId = data.playerFamilyId ?? null;
+
       game.dayTime      = data.dayTime      ?? 0;
       game.totalSpawned = data.totalSpawned ?? 0;
       game.prevUnlock   = data.prevUnlock   ?? 0;
@@ -105,6 +113,8 @@ const SaveLoad = {
         s.pniepnieTimer   = sd.pniepnieTimer ?? 0;
         s.nailBoost       = sd.nailBoost    ?? false;
         s.slaveOf         = sd.slaveOf      ?? null;
+        s.wasSlave        = sd.wasSlave     ?? false;
+        s.isPlayerFamily  = sd.isPlayerFamily ?? false;
         game.siljangsukList.push(s);
         game.entities.set(s.id, s);
       }

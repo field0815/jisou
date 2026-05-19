@@ -20,10 +20,13 @@ class House {
     // 운치 (배설물) – 0~100
     this.unciAmount = 0;
 
-    // 운치굴 위치 (집 주변 랜덤 방향)
+    // 운치굴 위치 (집 주변 랜덤 방향) — 굴은 가족 5인 이상일 때 굴착 시작
     const angle = Math.random() * Math.PI * 2;
     this.unciX = this.cx + Math.cos(angle) * CONFIG.UNCI_DIST;
     this.unciY = this.cy + Math.sin(angle) * CONFIG.UNCI_DIST;
+    this.hasUnci      = false;     // 굴착 완료 여부
+    this.unciBuildProgress = 0;    // 0~10 (초)
+    this.unciBuildDuration = 10;
 
     // 빈집 여부 (모든 거주자 사망/이탈 시 true)
     this.vacant = false;
@@ -57,10 +60,31 @@ class House {
   }
 
   isInUnci(px, py) {
+    if (!this.hasUnci) return false;
     return Utils.distance({ x: px, y: py }, { x: this.unciX, y: this.unciY }) < CONFIG.UNCI_RADIUS;
   }
 
   update(dt) {
+    // 가족 5인 이상이면 운치굴 굴착 시작
+    if (!this.hasUnci) {
+      const occ = this.getOccupantCount();
+      if (occ >= 5) {
+        this.unciBuildProgress += dt;
+        if (this.unciBuildProgress >= this.unciBuildDuration) {
+          this.hasUnci = true;
+          this.unciBuildProgress = 0;
+          if (Game.logEvent) {
+            const owner = Game.getEntity(this.ownerId);
+            Game.logEvent(`💩 ${owner?.label ?? '집'}에 운치굴 완성`, '#aa7700',
+              { x: this.unciX, y: this.unciY });
+          }
+        }
+      } else {
+        // 5인 미만으로 줄어들면 진행 중지/리셋
+        this.unciBuildProgress = Math.max(0, this.unciBuildProgress - dt * 0.3);
+      }
+    }
+
     // 안락함 자연 감소 (운치는 더이상 영향 없음)
     const comfortLoss = 0.06;
     this.comfort = Math.max(0, this.comfort - comfortLoss * dt);
@@ -107,8 +131,17 @@ class House {
     }
   }
 
+  // 낙엽 1장씩 누적 → 레벨별 누적량으로 별 등급 결정 (100/200/300/400/500)
+  // comfort = (현재 별 레벨 × 20). 다음 단계에 필요한 추가 낙엽: level * 100
   addLeaf() {
-    this.comfort = Math.min(100, this.comfort + 6);
+    this.leafAccum = (this.leafAccum ?? 0) + 1;
+    const curStar = Math.floor(this.comfort / 20);
+    if (curStar >= 5) return;
+    const need = (curStar + 1) * 100;
+    if (this.leafAccum >= need) {
+      this.leafAccum -= need;
+      this.comfort = Math.min(100, (curStar + 1) * 20);
+    }
   }
 
   addFood(value) {
@@ -146,6 +179,27 @@ class House {
   // 운치굴만 그리기 (배경 바로 위, 다른 모든 객체 아래에서 호출)
   drawUnci(ctx, camera) {
     if (!camera.isVisible(this.unciX, this.unciY, 80)) return;
+    // 굴착 중이면 진행도 표시
+    if (!this.hasUnci) {
+      if (this.unciBuildProgress > 0) {
+        const p = this.unciBuildProgress / this.unciBuildDuration;
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#7a5020';
+        ctx.beginPath();
+        ctx.arc(this.unciX, this.unciY, CONFIG.UNCI_RADIUS * p, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        const txt = `🔨 운치굴 ${Math.floor(p * 100)}%`;
+        ctx.strokeText(txt, this.unciX, this.unciY - 8);
+        ctx.fillText(txt, this.unciX, this.unciY - 8);
+        ctx.restore();
+      }
+      return;
+    }
     const unciFill = Math.min(1, this.unciAmount / 60);
     const pooImg   = Images.getPooCave && Images.getPooCave();
     if (pooImg) {
@@ -185,8 +239,10 @@ class House {
 
     const hpRatio = hp / maxHp;
 
-    // PNG 가 있으면 우선 사용 — 안에 누군가 있을 때만 반투명
-    const houseImg = Images.getHouse && Images.getHouse();
+    // PNG 가 있으면 우선 사용 — 안락도 레벨별 이미지(houseN.png) 사용
+    const star = Math.max(1, Math.round(this.comfort / 20));
+    const houseImg = (Images.getHouseLevel ? Images.getHouseLevel(star) : null)
+                  || (Images.getHouse && Images.getHouse());
     if (houseImg) {
       // 집 내부에 실장석이 있는지 (집 영역 내)
       const anyInside = Game.siljangsukList.some(s =>

@@ -427,6 +427,22 @@ class UI {
       ctx.fillText('📷', camBtnX + camBtnW / 2, camBtnY + 15);
       this._camTrackBtn = { x: camBtnX, y: camBtnY, w: camBtnW, h: camBtnH, target: ent };
 
+      // 소지품 요약 — 종류별 개수
+      let invStr = '없음';
+      if (ent.carriedItems && ent.carriedItems.length > 0) {
+        const counts = {};
+        for (const it of ent.carriedItems) {
+          const key = it.type ?? '?';
+          counts[key] = (counts[key] ?? 0) + 1;
+        }
+        const ICON = {
+          food_good: '🍖', food_normal: '🍱', food_bad: '🥄',
+          paper: '📄', leaf: '🍂', tarp: '🟦',
+          confetto: '✨', dodonpa: '🔮', korori: '☠',
+        };
+        invStr = Object.entries(counts)
+          .map(([k, v]) => `${ICON[k] ?? '·'}${v}`).join(' ');
+      }
       const lines = [
         ['번호',  `#${ent.serialNo ?? '?'}`],
         ['조직',  `${game.tribeLabel(ent.familyId)}` + (ent.raidTarget ? ' (습격 중)' : ent.defendAgainst ? ' (방어 중)' : '')],
@@ -434,7 +450,7 @@ class UI {
         ['포만',  info.satiation],
         ['행복',  info.happiness],
         ['상태',  info.state],
-        ['아이템', `${info.items}개`],
+        ['소지품', invStr],
         ['임신',  info.pregnant],
         ['신분',  info.slave],
       ];
@@ -789,6 +805,19 @@ const MENU_CATEGORIES = [
       { label: '학대파',   icon: '👊', type: 'human_2',  unlock: 0 },
       { label: '일반인',   icon: '🚶', type: 'human_4',  unlock: 0 },
       { label: '고양이',   icon: '🐱', type: 'cat',      unlock: 0 },
+    ]
+  },
+  {
+    label: '실장석',
+    icon: '🐛',
+    items: [
+      { label: '성체실장',     icon: '🦴', type: 'spawn_adult',       unlock: 0 },
+      { label: '자실장',       icon: '🐾', type: 'spawn_stage3',      unlock: 0 },
+      { label: '엄지',         icon: '🐣', type: 'spawn_stage2',      unlock: 0 },
+      { label: '구더기',       icon: '🪱', type: 'spawn_stage1',      unlock: 0 },
+      { label: '성체독라',     icon: '⛓', type: 'spawn_adult_slave', unlock: 0 },
+      { label: '자실장독라',   icon: '⛓', type: 'spawn_stage3_slave',unlock: 0 },
+      { label: '엄지독라',     icon: '⛓', type: 'spawn_stage2_slave',unlock: 0 },
     ]
   },
   {

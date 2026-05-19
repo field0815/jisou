@@ -115,5 +115,12 @@ const CONFIG = {
   POLLEN_MAX: 6,
   POLLEN_SPEED: 40,
 
-  UNCI_DEFECATE_INTERVAL: 30,   // 배변 주기(초)
+  UNCI_DEFECATE_INTERVAL: 90,   // 배변 주기(초) — 모든 단계 공통 (구더기 제외)
+
+  // ── 게임 모드 ─────────────────────────────────────
+  GAME_MODE: null,   // null=타이틀, 'park'=공원 모드(기존), 'family'=가족 모드
+  AUTOSAVE_INTERVAL: 10,         // 초마다 자동 저장
+  FOG_VISIBILITY_RADIUS: 350,    // 가족 모드: 플레이어 멤버 주변 시야 반경 (px)
+  GRID_SIZE: 48,                 // 가족 모드: 건축 격자 크기
+  FAMILY_STARTING_FAMILIES: 4,   // 가족 모드 초기 다른 가족 수 (자기 자신 포함하면 +1)
 };
